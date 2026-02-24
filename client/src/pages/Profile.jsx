@@ -86,7 +86,7 @@ export default function Profile() {
 
       <main className="max-w-6xl mx-auto px-4 py-8">
         {/* Profile Header */}
-        <div className="bg-white/95 backdrop-blur-sm rounded-3xl shadow-xl border border-gray-200 p-8 mb-8">
+        <div className="bg-white/70 backdrop-blur-sm rounded-3xl shadow-xl border border-gray-200 p-8 mb-8">
           <div className="flex flex-col md:flex-row gap-8 items-start">
             {/* Profile Picture */}
             <div className="relative group">
@@ -176,19 +176,19 @@ export default function Profile() {
 
         {/* Stats Grid */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-6 text-center">
+          <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-6 text-center">
             <div className="text-3xl font-bold text-amber-800 mb-1">{stats.totalBooks}</div>
             <div className="text-sm text-gray-600">Books Read</div>
           </div>
-          <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-6 text-center">
+          <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-6 text-center">
             <div className="text-3xl font-bold text-amber-800 mb-1">{stats.readingStreak}</div>
             <div className="text-sm text-gray-600">Day Streak</div>
           </div>
-          <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-6 text-center">
+          <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-6 text-center">
             <div className="text-3xl font-bold text-amber-800 mb-1">{stats.reviews}</div>
             <div className="text-sm text-gray-600">Reviews</div>
           </div>
-          <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-6 text-center">
+          <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-6 text-center">
             <div className="text-3xl font-bold text-amber-800 mb-1">{stats.wishlist}</div>
             <div className="text-sm text-gray-600">Wishlist</div>
           </div>
@@ -197,7 +197,7 @@ export default function Profile() {
         {/* Two Column Layout */}
         <div className="grid md:grid-cols-2 gap-8">
           {/* Reading History */}
-          <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-6">
+          <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-6">
             <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center gap-2">
               <FaHistory className="w-5 h-5 text-amber-700" />
               Reading History
@@ -228,7 +228,7 @@ export default function Profile() {
           </div>
 
           {/* Recent Activity */}
-          <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-6">
+          <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-6">
             <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center gap-2">
               <FaHeart className="w-5 h-5 text-amber-700" />
               Recent Activity
@@ -256,7 +256,7 @@ export default function Profile() {
         </div>
 
         {/* Reading Goal Progress */}
-        <div className="mt-8 bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-6">
+        <div className="mt-8 bg-white/70 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold text-gray-800">2025 Reading Goal</h2>
             <span className="text-amber-800 font-semibold">{profile.booksRead}/{profile.readingGoal} books</span>

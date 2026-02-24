@@ -18,19 +18,32 @@ def create_access_token(data: dict):
         settings.JWT_SECRET,
         algorithm=settings.JWT_ALGORITHM,
     )
-
+    
 def get_current_user(token: str = Depends(oauth2_scheme)):
+    print(f"[JWT DEBUG] Token received (first 30 chars): {token[:30]}...")
     try:
         payload = jwt.decode(
             token,
             settings.JWT_SECRET,
             algorithms=[settings.JWT_ALGORITHM],
         )
-        return payload["sub"]
-    except JWTError:
+        print("[JWT DEBUG] Full decoded payload:", payload)
+        
+        sub = payload.get("sub")
+        if sub is None:
+            print("[JWT DEBUG] No 'sub' key found in token!")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token missing subject (sub) claim",
+            )
+        
+        print(f"[JWT DEBUG] Valid user: {sub}")
+        return sub
+    except JWTError as e:
+        print("[JWT DEBUG] JWT validation failed:", str(e))
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token",
+            detail="Invalid or expired token",
         )
         
 def require_role(role: str):

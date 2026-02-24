@@ -48,14 +48,14 @@ def ask(payload: AssistantRequest):
             score = next((r['score'] for r in results if r['book_id'] == book['book_id']), 'N/A')
             print(f"{idx:4} | {book['book_id']} | {title[:60]:60} | {score}")
 
-        # Comment out LLM call for now
-        # llm_result = librarian_answer(payload.question, books)
+        # Call LLM with the new format that returns citations
+        llm_result = librarian_answer(payload.question, books)
 
         # Temporary response so you see the books
         return AssistantResponse(
             question=payload.question,
-            answer="DEBUG MODE: LLM skipped. Here are the top matching books.",
-            citations={},
+            answer=llm_result["answer"],
+            citations=llm_result["citations"],
             sources=books   # ← this will go to frontend
         )
 

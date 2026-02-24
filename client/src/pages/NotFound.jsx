@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { FaHome, FaSearch } from 'react-icons/fa';
-import BookBuddyLogo from '../components/BookBuddyLogo';
 import Footer from '../components/Footer';
+import LitScholarLogo from '../components/LitScholarLogo';
 
 export default function NotFound() {
   return (
@@ -14,7 +14,7 @@ export default function NotFound() {
             </div>
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="bg-white/95 backdrop-blur-sm shadow-2xl p-6 rounded-3xl animate-float">
-                <BookBuddyLogo className="w-24 h-24" />
+                <LitScholarLogo className="w-24 h-24" />
               </div>
             </div>
           </div>

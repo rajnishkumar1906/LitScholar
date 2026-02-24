@@ -8,9 +8,6 @@ import chromadb
 from dotenv import load_dotenv
 from sentence_transformers import SentenceTransformer
 
-# =====================================================
-# CONFIG (SAFE FOR GTX 1650)
-# =====================================================
 DEBUG = True
 
 DB_FETCH_SIZE = 500          # for Supabase only
@@ -20,18 +17,12 @@ MAX_LENGTH = 256
 
 CSV_PATH = "backend/data/books_clean.csv"
 
-# =====================================================
-# ENV + DEVICE
-# =====================================================
 load_dotenv()
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 CHROMA_DIR = "backend/chroma_store"
 
-# =====================================================
-# DEBUG HELPERS
-# =====================================================
 def debug(msg: str):
     if DEBUG:
         print(msg, flush=True)
@@ -55,9 +46,6 @@ def print_device_info():
     print("=" * 60 + "\n")
 
 
-# =====================================================
-# TEXT BUILDERS
-# =====================================================
 def safe(val):
     return str(val).strip() if val else ""
 
@@ -71,10 +59,6 @@ def build_embedding_text(row):
         f"Description: {safe(row['book_details'])}"
     )
 
-
-# =====================================================
-# DATA LOADERS
-# =====================================================
 
 def load_from_supabase(offset: int):
     """Fetch a chunk from Supabase (safe pagination)"""
@@ -113,7 +97,6 @@ def load_from_supabase(offset: int):
 
     return results
 
-
 def load_from_csv():
     """Load entire dataset from local CSV (FAST & RELIABLE)"""
     debug(f"📥 Loading data from CSV: {CSV_PATH}")
@@ -125,10 +108,6 @@ def load_from_csv():
     debug(f"📦 Loaded {len(rows)} rows from CSV")
     return rows
 
-
-# =====================================================
-# MAIN
-# =====================================================
 def main():
     print_device_info()
     os.makedirs(CHROMA_DIR, exist_ok=True)
@@ -148,10 +127,6 @@ def main():
 
     debug(f"📚 Chroma count before: {collection.count()}")
 
-    # =================================================
-    # 🔁 CHOOSE DATA SOURCE (COMMENT / UNCOMMENT)
-    # =================================================
-
     # ---------- OPTION 1: SUPABASE ----------
     # offset = 0
     # total_rows = 0
@@ -170,9 +145,6 @@ def main():
     print("\n🎉 EMBEDDING COMPLETE\n")
 
 
-# =====================================================
-# EMBEDDING CORE (shared)
-# =====================================================
 def embed_rows(rows, model, collection, already_embedded):
     total_batches = math.ceil(len(rows) / MAIN_BATCH_SIZE)
 
@@ -215,8 +187,5 @@ def embed_rows(rows, model, collection, already_embedded):
             torch.cuda.empty_cache()
 
 
-# =====================================================
-# ENTRYPOINT
-# =====================================================
 if __name__ == "__main__":
     main()

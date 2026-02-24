@@ -1,240 +1,280 @@
-<<<<<<< HEAD
-Got it 👍 — no meta text, no explanations, **just the README content itself**.
+# 📚 LitScholar - AI-Powered Virtual Librarian
 
-Here is the **clean, copy-paste-ready `README.md`** for **BookBuddy**, in the **exact same format/style as Connectly**, and **GitHub-render correct**.
+![LitScholar Logo](public/litscholar-icon.svg)
 
----
-
-```md
-# 📚 BookBuddy — Local AI Librarian
-
-**BookBuddy** is a **local, explainable AI-powered virtual librarian** built using **Retrieval-Augmented Generation (RAG)**.  
-It understands natural language queries, recommends books semantically, and explains *why* each recommendation makes sense — all while remaining **fully local and privacy-first**.
-
-This project demonstrates real-world **ML engineering, backend architecture, and full-stack integration**, making it ideal for a portfolio showcase.
-
----
+LitScholar is an intelligent virtual librarian that understands natural language queries and recommends books with human-like reasoning. It combines modern AI/ML techniques with a robust full-stack architecture to provide personalized book recommendations and scholarly insights.
 
 ## 🚀 Features
 
-### 🔍 Semantic Book Search
-- Natural language book queries
-- Vector-based semantic search (no keyword matching)
-- Searches across titles, authors, genres, descriptions, and OCR text
+### Core Functionality
+- **Natural Language Search**: Describe what you're looking for in plain English
+- **Semantic Book Retrieval**: Finds relevant books using vector embeddings
+- **AI-Powered Explanations**: Get librarian-style recommendations with citations
+- **Follow-up Questions**: Ask detailed questions about specific books
+- **User Authentication**: Email/password and Google OAuth support
 
-### 🧠 Retrieval-Augmented Generation (RAG)
-- Relevant books retrieved from a vector database
-- Local LLM reasons over retrieved context
-- Responses grounded in retrieved data
+### Technical Highlights
+- **Offline-first Architecture**: Local LLM inference for privacy
+- **Semantic Search**: SentenceTransformers + ChromaDB for high-precision retrieval
+- **Citation System**: Every claim is traceable to source books
+- **Responsive UI**: Beautiful amber/brown themed interface
 
-### 📖 Book Recommendations & Summaries
-- Librarian-style explanations for recommendations
-- Clear reasoning for *why* a book fits the query
-- Book summaries (minimum 50 words)
-- Neutral, informative librarian tone
+## 🏗️ Architecture
 
-### 🖼️ OCR-Based Text Understanding
-- OCR extraction from book cover images using **Tesseract**
-- OCR text embedded and indexed
-- Enables text-based reasoning from images (no vision models)
+### Frontend (React + Vite)
+- **Pages**: Auth, Dashboard, BookDetail, Profile
+- **Components**: Navbar, Footer, SearchBar, BookCard
+- **State Management**: Context API (AppContext)
+- **Styling**: Tailwind CSS with custom amber/brown theme
+- **Icons**: React Icons + Custom SVG logo
 
-### 👤 User Preference Learning
-- Tracks basic user interactions
-- Learns genre and topic preferences over time
-- Improves recommendation relevance
+### Backend (FastAPI)
+- **Authentication**: JWT tokens + Google OAuth
+- **Database**: PostgreSQL (Supabase) for book metadata
+- **Vector Store**: ChromaDB for embeddings
+- **LLM Integration**: Google Gemini for intelligent responses
+- **Semantic Search**: SentenceTransformers (all-mpnet-base-v2)
 
-### 🔐 Authentication & Security
-- JWT-based authentication
-- OAuth 2.0 (Google login)
-- Stateless and secure backend
-- Protected API routes
-
-### 🏠 Fully Local Execution
-- No paid APIs
-- No cloud-hosted LLMs
-- Local embeddings, retrieval, and inference
-- Privacy-first by design
-
----
-
-## ⚡ RAG System Architecture
+## 📦 Project Structure
 
 ```
-
-User Query
-↓
-FastAPI API
-↓
-SentenceTransformers (Embeddings)
-↓
-Chroma Vector Store
-↓
-Relevant Book IDs
-↓
-PostgreSQL (Supabase)
-↓
-Book Metadata + OCR Text
-↓
-LLM (Gemini)
-↓
-Final Answer / Explanation
-
-```
-
----
-
-## 🛠️ Tech Stack
-
-### Backend
-- **FastAPI**
-- **PostgreSQL (Supabase)**
-- **JWT Authentication**
-- **OAuth 2.0**
-
-### AI / ML
-- **ChromaDB**
-- **SentenceTransformers (MPNet)**
-- **Google Gemini**
-- **Tesseract OCR**
-
-### Frontend
-- **React**
-- **Tailwind CSS**
-- **React Router**
-- **JWT-based auth flow**
-
----
-
-## 📁 Project Structure
-
-```
-
-BookBuddy/
-├── backend/
-│   ├── main.py
-│   ├── core/
-│   ├── auth/
-│   ├── users/
-│   ├── books/
-│   ├── assistant/
-│   ├── retrieval/
-│   ├── data_preprocessing/
-│   └── chroma_store/
+litscholar/
+├── frontend/                    # React frontend
+│   ├── public/                  # Static assets
+│   │   └── litscholar-icon.svg
+│   ├── src/
+│   │   ├── components/          # Reusable UI components
+│   │   │   ├── Navbar.jsx
+│   │   │   ├── Footer.jsx
+│   │   │   ├── SearchBar.jsx
+│   │   │   ├── BookCard.jsx
+│   │   │   └── LitScholarLogo.jsx
+│   │   ├── context/             # Global state
+│   │   │   └── AppContext.jsx
+│   │   ├── pages/               # Page components
+│   │   │   ├── Auth.jsx
+│   │   │   ├── Dashboard.jsx
+│   │   │   ├── BookDetail.jsx
+│   │   │   ├── Profile.jsx
+│   │   │   └── NotFound.jsx
+│   │   ├── services/            # API integration
+│   │   │   └── api.js
+│   │   ├── App.jsx
+│   │   ├── main.jsx
+│   │   └── index.css
+│   └── package.json
 │
-├── frontend/
-│   └── src/
-│       ├── pages/
-│       ├── components/
-│       ├── auth/
-│       └── services/
-│
-└── README.md
-
-````
-
----
-
-## 🔐 Authentication & Authorization
-- JWT-based authentication
-- Protected API routes
-- OAuth 2.0 Google login
-- Secure password hashing
-- Stateless backend design
-
----
-
-## 📊 Data Storage Strategy
-
-### PostgreSQL (Supabase)
-- Book metadata
-- Image URLs
-- User accounts
-- Interaction history
-- Preference signals
-
-### ChromaDB
-- Text embeddings
-- OCR-derived embeddings
-- Retrieval metadata
-
----
-
-## 🖼️ OCR & Image Handling
-- Book covers stored via image URLs
-- OCR performed using **Tesseract**
-- Extracted text embedded and indexed
-- Enables text-based reasoning from images
-
----
-
-## ❌ Out of Scope
-- Direct image understanding by the LLM
-- Advanced computer vision pipelines
-- Agent graphs or multi-step planners
-- Cloud-based or paid LLM services
-
----
-
-## 🎯 Success Criteria
-- Librarian-style summaries
-- Semantically relevant recommendations
-- Clear, explainable reasoning
-- Local and reproducible execution
-
----
-
-## 🧪 Engineering Philosophy
-- ML-first, API-second
-- Deterministic preprocessing
-- Clear separation of concerns
-- No hidden cloud dependencies
-- Debuggability over hype
-
----
-
-## 🚦 Getting Started
-
-### Prerequisites
-- Python 3.10+
-- PostgreSQL
-- Node.js
-
-### Backend
-```bash
-pip install -r requirements.txt
-uvicorn backend.main:app --reload
-````
-
-Create `.env`:
-
-```env
-GEMINI_API_KEY=your_key
+└── backend/                      # FastAPI backend
+    ├── assistant/                # AI librarian logic
+    │   ├── librarian.py
+    │   ├── router.py
+    │   └── schemas.py
+    ├── auth/                      # Authentication
+    │   ├── oauth.py
+    │   ├── router.py
+    │   └── schemas.py
+    ├── books/                      # Book routes
+    │   └── router.py
+    ├── core/                        # Core config
+    │   ├── config.py
+    │   ├── database.py
+    │   ├── db.py
+    │   └── security.py
+    ├── data/                         # CSV datasets
+    │   ├── book_raw.csv
+    │   └── books_clean.csv
+    ├── llm/                           # LLM clients
+    │   ├── gemini_client.py
+    │   └── ollama_client.py
+    ├── retrieval/                     # Search & embeddings
+    │   ├── chroma_client.py
+    │   ├── retriever.py
+    │   ├── supabase_fetch.py
+    │   └── test_retriever.py
+    ├── scripts/                        # Data pipeline scripts
+    │   ├── build_chroma_embeddings.py
+    │   ├── clean_books_csv.py
+    │   ├── insert_cleaned_books.py
+    │   ├── pipeline_checks.py
+    │   └── run_pipeline.py
+    ├── users/                          # User routes
+    │   ├── router.py
+    │   └── schemas.py
+    ├── utils/                           # Helpers
+    │   └── keyword_extractor.py
+    ├── chroma_store/                    # ChromaDB storage (created at runtime)
+    ├── main.py                           # FastAPI app
+    ├── requirements.txt                  # Python dependencies
+    └── .env                               # Environment variables
 ```
 
-### Frontend
+## 🛠️ Installation with Conda
 
+### Frontend Setup
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
 
+### Backend Setup with Conda
+```bash
+cd backend
+
+# Create conda environment
+conda create -n litscholar python=3.10 -y
+
+# Activate environment
+conda activate litscholar
+
+# Install dependencies
+pip install -r requirements.txt
+```
+
+### Environment Configuration
+Create a `.env` file in the backend directory:
+```env
+# Database
+DATABASE_URL=postgresql://user:password@localhost:5432/litscholar
+
+# JWT Settings
+JWT_SECRET=your_jwt_secret_key_change_this_in_production
+JWT_ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=60
+REFRESH_TOKEN_EXPIRE_DAYS=7
+
+# OAuth / Session
+SESSION_SECRET_KEY=your_session_secret_key_change_this
+GOOGLE_CLIENT_ID=your_google_client_id
+GOOGLE_CLIENT_SECRET=your_google_client_secret
+GOOGLE_REDIRECT_URI=http://localhost:8000/auth/google/callback
+
+# Frontend
+FRONTEND_URL=http://localhost:5173
+
+# API Keys
+GEMINI_API_KEY=your_gemini_api_key
+
+# CORS
+CORS_ORIGINS=["http://localhost:5173","http://127.0.0.1:5173"]
+
+# Environment
+ENVIRONMENT=development
+```
+
+## 🚀 Running the Application
+
+### Start Backend Server
+```bash
+cd backend
+conda activate litscholar
+uvicorn main:app --reload --port 8000
+```
+
+### Start Frontend Development Server
+```bash
+cd frontend
+npm run dev
+```
+
+Visit `http://localhost:5173` to use LitScholar!
+
+## 📊 Data Pipeline
+
+Run the complete data pipeline to populate your database and vector store:
+
+```bash
+cd backend
+conda activate litscholar
+python scripts/run_pipeline.py
+```
+
+This executes:
+1. **Clean CSV** - Removes duplicates and invalid entries
+2. **Insert to Supabase** - Stores cleaned book data
+3. **Generate Embeddings** - Creates vector embeddings in ChromaDB
+
+### Individual Pipeline Steps
+```bash
+# Step 1: Clean raw CSV
+python scripts/clean_books_csv.py
+
+# Step 2: Insert cleaned data to Supabase
+python scripts/insert_cleaned_books.py
+
+# Step 3: Build Chroma embeddings
+python scripts/build_chroma_embeddings.py
+```
+
+## 🔍 API Endpoints
+
+### Authentication
+- `POST /auth/login` - Email/password login
+- `POST /auth/register` - Create new account
+- `POST /auth/refresh` - Refresh access token
+- `GET /auth/google/login` - Google OAuth login
+- `GET /auth/google/callback` - Google OAuth callback
+
+### Books
+- `GET /books/search?q={query}` - Search books
+- `GET /books/{book_id}` - Get book details
+
+### Assistant (AI Librarian)
+- `POST /assistant/ask` - Ask the AI librarian a question
+
+### Users
+- `GET /users/me` - Get current user info
+
+## 🧪 Testing
+
+### Test Semantic Search
+```bash
+cd backend
+conda activate litscholar
+python retrieval/test_retriever.py
+```
+
+### Test Image URLs
+```bash
+cd backend
+conda activate litscholar
+python scripts/image_test_and_open.py
+```
+
+## 📝 Conda Commands Cheat Sheet
+
+```bash
+# Create environment
+conda create -n litscholar python=3.10 -y
+
+# Activate environment
+conda activate litscholar
+
+# Deactivate environment
+conda deactivate
+
+# List all environments
+conda env list
+
+# Remove environment
+conda env remove -n litscholar
+
+# Export environment
+conda env export > environment.yml
+
+# Create from exported file
+conda env create -f environment.yml
+```
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+
 ---
 
-## 🛣️ Roadmap
-
-* [ ] Advanced preference modeling
-* [ ] Conversation memory
-* [ ] Hybrid retrieval (BM25 + vectors)
-* [ ] Offline LLM inference
-* [ ] Book similarity graph
-
----
-
-## 👤 Author
-
-**Rajnish Kumar**
-GitHub: [@rajnishkumar1906](https://github.com/rajnishkumar1906)
-=======
-# 📚 BookBuddy 
->>>>>>> 482140a274aad4448fd6cd8886f522394d59f5a8
+Built with ❤️ by Rajnish Kumar

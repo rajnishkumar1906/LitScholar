@@ -1,22 +1,24 @@
 // src/pages/BookDetail.jsx
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import { 
-  FaArrowLeft, FaBook, FaUser, FaLayerGroup, FaFileAlt, 
-  FaCalendar, FaBuilding, FaBarcode, FaStar, FaRobot, 
-  FaQuestionCircle, FaSpinner 
+import {
+  FaArrowLeft, FaBook, FaUser, FaLayerGroup, FaFileAlt,
+  FaCalendar, FaBuilding, FaBarcode, FaStar, FaRobot,
+  FaQuestionCircle, FaSpinner
 } from 'react-icons/fa';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import NotFound from './NotFound';
+import BookDataCard from '../components/BookDataCard';
 import { useApp } from '../context/AppContext';
+
 
 export default function BookDetail() {
   const { bookId } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
   const { getBookById, askFollowUp } = useApp();
-  
+
   const [book, setBook] = useState(location.state?.book || null);
   const [loading, setLoading] = useState(!location.state?.book);
   const [showFollowUp, setShowFollowUp] = useState(false);
@@ -67,7 +69,7 @@ export default function BookDetail() {
     setFollowUpQuestion(question);
     // Auto-submit after setting question
     setTimeout(() => {
-      handleFollowUpSubmit({ preventDefault: () => {} });
+      handleFollowUpSubmit({ preventDefault: () => { } });
     }, 100);
   };
 
@@ -94,130 +96,18 @@ export default function BookDetail() {
         {/* Back button */}
         <button
           onClick={() => navigate('/dashboard')}
-          className="flex items-center gap-2 text-gray-600 hover:text-amber-800 mb-6 transition-colors group"
+          className="flex items-center gap-2 text-white text-2xl font-bold hover:text-amber-800 mb-6 transition-colors group"
         >
           <FaArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
           Back to search results
         </button>
 
-        {/* Book Detail Card */}
-        <div className="bg-white/95 backdrop-blur-sm rounded-3xl shadow-xl border border-gray-200 overflow-hidden mb-8">
-          <div className="grid md:grid-cols-3 gap-8 p-8">
-            {/* Book Cover */}
-            <div className="md:col-span-1">
-              <div className="bg-gradient-to-br from-amber-100 to-amber-200 rounded-2xl overflow-hidden shadow-lg aspect-[2/3] flex items-center justify-center">
-                {book.image_url ? (
-                  <img 
-                    src={book.image_url} 
-                    alt={book.title} 
-                    className="w-full h-full object-cover hover:scale-105 transition-transform duration-500"
-                    onError={(e) => {
-                      e.target.onerror = null;
-                      e.target.style.display = 'none';
-                      e.target.parentNode.innerHTML = '<FaBook className="w-20 h-20 text-amber-800/30" />';
-                    }}
-                  />
-                ) : (
-                  <FaBook className="w-20 h-20 text-amber-800/30" />
-                )}
-              </div>
-            </div>
-
-            {/* Book Info */}
-            <div className="md:col-span-2">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="px-3 py-1 bg-amber-100 text-amber-900 rounded-full text-xs font-medium">
-                  {book.genres?.split(',')[0]?.trim() || 'General'}
-                </span>
-                {book.rating && (
-                  <div className="flex items-center gap-1 text-amber-600">
-                    <FaStar className="w-4 h-4" />
-                    <span className="text-sm font-medium">{book.rating}</span>
-                  </div>
-                )}
-              </div>
-
-              <h1 className="text-4xl font-bold text-gray-900 mb-2">{book.title}</h1>
-              <p className="text-xl text-gray-600 mb-6">by {book.author}</p>
-
-              {/* Meta Info Grid */}
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
-                <div className="flex items-center gap-2 text-gray-600 bg-gray-50 p-3 rounded-xl">
-                  <FaUser className="w-4 h-4 text-amber-700" />
-                  <div>
-                    <p className="text-xs text-gray-500">Author</p>
-                    <p className="text-sm font-medium">{book.author}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 text-gray-600 bg-gray-50 p-3 rounded-xl">
-                  <FaLayerGroup className="w-4 h-4 text-amber-700" />
-                  <div>
-                    <p className="text-xs text-gray-500">Genre</p>
-                    <p className="text-sm font-medium">{book.genres}</p>
-                  </div>
-                </div>
-                {book.num_pages && (
-                  <div className="flex items-center gap-2 text-gray-600 bg-gray-50 p-3 rounded-xl">
-                    <FaFileAlt className="w-4 h-4 text-amber-700" />
-                    <div>
-                      <p className="text-xs text-gray-500">Pages</p>
-                      <p className="text-sm font-medium">{book.num_pages}</p>
-                    </div>
-                  </div>
-                )}
-                {book.published_year && (
-                  <div className="flex items-center gap-2 text-gray-600 bg-gray-50 p-3 rounded-xl">
-                    <FaCalendar className="w-4 h-4 text-amber-700" />
-                    <div>
-                      <p className="text-xs text-gray-500">Published</p>
-                      <p className="text-sm font-medium">{book.published_year}</p>
-                    </div>
-                  </div>
-                )}
-                {book.publisher && (
-                  <div className="flex items-center gap-2 text-gray-600 bg-gray-50 p-3 rounded-xl">
-                    <FaBuilding className="w-4 h-4 text-amber-700" />
-                    <div>
-                      <p className="text-xs text-gray-500">Publisher</p>
-                      <p className="text-sm font-medium">{book.publisher}</p>
-                    </div>
-                  </div>
-                )}
-                {book.isbn && (
-                  <div className="flex items-center gap-2 text-gray-600 bg-gray-50 p-3 rounded-xl">
-                    <FaBarcode className="w-4 h-4 text-amber-700" />
-                    <div>
-                      <p className="text-xs text-gray-500">ISBN</p>
-                      <p className="text-sm font-medium">{book.isbn}</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Description */}
-              {book.description && (
-                <div className="mb-8">
-                  <h2 className="text-lg font-semibold text-gray-800 mb-2">Description</h2>
-                  <p className="text-gray-600 leading-relaxed">{book.description}</p>
-                </div>
-              )}
-
-              {/* Action Buttons */}
-              <div className="flex flex-wrap gap-4">
-                <button
-                  onClick={() => setShowFollowUp(!showFollowUp)}
-                  className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-amber-800 to-amber-900 text-white font-medium rounded-xl hover:shadow-lg transition-all duration-300 transform hover:scale-105"
-                >
-                  <FaRobot className="w-5 h-5" />
-                  {showFollowUp ? 'Hide AI Librarian' : 'Ask AI Librarian'}
-                </button>
-                <button className="flex items-center gap-2 px-6 py-3 border border-gray-300 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition-all duration-300">
-                  Add to Wishlist
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+      {/* Book details */}
+        <BookDataCard
+          book={book}
+          showFollowUp={showFollowUp}
+          setShowFollowUp={setShowFollowUp}
+        />
 
         {/* Follow-up Questions Section */}
         {showFollowUp && (
@@ -287,7 +177,7 @@ export default function BookDetail() {
                   </div>
                   <div className="flex-1">
                     <p className="text-sm text-gray-800 leading-relaxed">{followUpAnswer}</p>
-                    
+
                     {/* Citations */}
                     {Object.keys(citations).length > 0 && (
                       <div className="mt-3 pt-3 border-t border-amber-200">
@@ -305,7 +195,7 @@ export default function BookDetail() {
                         </div>
                       </div>
                     )}
-                    
+
                     <p className="text-xs text-gray-500 mt-2">AI Librarian • Just now</p>
                   </div>
                 </div>
@@ -316,11 +206,11 @@ export default function BookDetail() {
 
         {/* You might also like section */}
         <div className="mt-12">
-          <h2 className="text-2xl font-semibold text-gray-800 mb-6">You might also like</h2>
+          <h2 className="text-4xl font-bold text-white mb-6"><u>You might also like</u></h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[1, 2, 3, 4].map((i) => (
-              <div 
-                key={i} 
+              <div
+                key={i}
                 className="bg-white/95 backdrop-blur-sm rounded-xl shadow-md border border-gray-200 p-4 hover:shadow-xl transition-all cursor-pointer transform hover:-translate-y-1"
                 onClick={() => navigate('/book/1')}
               >

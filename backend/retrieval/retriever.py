@@ -5,12 +5,11 @@ from retrieval.chroma_client import get_chroma_collection
 model = SentenceTransformer("all-mpnet-base-v2", device="cpu")
 
 # Distance threshold (cosine distance, lower = better)
-MAX_DISTANCE = 0.5
-
+MAX_DISTANCE = 0.6
 
 def search_books(
     query: str,
-    top_k: int = 5,
+    top_k: int = 6,
     min_score: float | None = None,
 ):
     """

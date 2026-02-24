@@ -9,7 +9,7 @@ import {
   FaGithub,
   FaArrowRight
 } from 'react-icons/fa';
-import BookBuddyLogo from '../components/BookBuddyLogo';
+import LitScholarLogo from '../components/LitScholarLogo';
 import { useApp } from '../context/AppContext';
 
 export default function Auth() {
@@ -105,10 +105,10 @@ export default function Auth() {
           {/* Logo */}
           <div className="flex flex-col items-center mb-6">
             <div className="p-3 bg-gradient-to-r from-amber-800 to-amber-900 rounded-2xl mb-3 shadow-lg">
-              <BookBuddyLogo className="w-12 h-12 text-white" />
+              <LitScholarLogo className="w-12 h-12 text-white" />
             </div>
             <h1 className="text-2xl font-bold text-amber-900">
-              BookBuddy
+              LitScholarLogo
             </h1>
           </div>
 

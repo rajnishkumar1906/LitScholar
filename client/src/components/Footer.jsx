@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { FaHeart } from 'react-icons/fa';
-import BookBuddyLogo from './BookBuddyLogo';
+import LitScholarLogo from '../components/LitScholarLogo';
 
 export default function Footer() {
   const currentYear = new Date().getFullYear();
@@ -11,10 +11,10 @@ export default function Footer() {
         {/* Logo and copyright */}
         <div className="flex items-center gap-2">
           <div className="p-1 bg-gradient-to-r from-amber-800 to-amber-900 rounded">
-            <BookBuddyLogo className="w-4 h-4 text-white" />
+            <LitScholarLogo className="w-4 h-4 text-white" />
           </div>
           <span className="text-xs text-gray-600">
-            © {currentYear} BookBuddy
+            © {currentYear} LitScholar
           </span>
         </div>
 

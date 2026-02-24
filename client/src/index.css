@@ -75,3 +75,56 @@ body::before {
 .delay-200 {
   animation-delay: 0.2s;
 }
+
+
+
+/* src/index.css or wherever your global styles live */
+
+/* Override react-toastify defaults for transparent + border look */
+:root {
+  --toastify-color-success: #10b981;     /* emerald-500 green */
+  --toastify-color-error: #ef4444;       /* red-500 */
+  --toastify-color-info: #3b82f6;        /* blue-500 optional */
+  --toastify-color-warning: #f59e0b;     /* amber-500 optional */
+
+  --toastify-toast-background: transparent !important;
+  --toastify-toast-min-height: 64px;
+  --toastify-toast-width: 360px;
+  --toastify-toast-border-radius: 12px;
+}
+
+/* Main toast wrapper – transparent + blur + border fallback */
+.Toastify__toast {
+  background: transparent !important;
+  backdrop-filter: blur(12px);           /* glass effect – adjust or remove */
+  -webkit-backdrop-filter: blur(12px);
+  border: 2px solid transparent;         /* fallback */
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+  color: white !important;
+  padding: 16px 20px;
+}
+
+/* Variant-specific borders (stroke) */
+.Toastify__toast--success {
+  border-color: #10b981 !important;      /* green border */
+}
+
+.Toastify__toast--error {
+  border-color: #ef4444 !important;      /* red border */
+}
+
+/* Optional: progress bar match border color */
+.Toastify__progress-bar--success {
+  background: #10b981 !important;
+}
+.Toastify__progress-bar--error {
+  background: #ef4444 !important;
+}
+
+/* Make icon match border color if you want */
+.Toastify__toast-icon--success svg {
+  fill: #10b981;
+}
+.Toastify__toast-icon--error svg {
+  fill: #ef4444;
+}

@@ -1,22 +1,3 @@
-# from fastapi import FastAPI
-# from auth.router import router as auth_router
-# from books.router import router as books_router
-# from assistant.router import router as assistant_router
-# from users.router import router as user_router
-
-# app = FastAPI(title="BookBuddy API")
-
-# app.include_router(auth_router, prefix="/auth", tags=["Auth"])
-# app.include_router(user_router, prefix="/users", tags=["Users"])
-# app.include_router(books_router, prefix="/books", tags=["Books"])
-# app.include_router(assistant_router, prefix="/assistant", tags=["Assistant"])
-
-
-# @app.get("/")
-# def root():
-#     return {"status": "BookBuddy backend running"}
-
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
@@ -29,13 +10,10 @@ from users.router import router as user_router
 # Optional: if you have startup/shutdown logic (e.g. Chroma client, DB pool, etc.)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: runs when server starts
     print("🚀 BookBuddy API starting...")
-    # Example: await initialize_chroma() or db.connect()
     yield
     # Shutdown: runs when server stops
     print("🛑 BookBuddy API shutting down...")
-    # Example: await cleanup_chroma() or db.close()
 
 
 app = FastAPI(

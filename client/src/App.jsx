@@ -11,38 +11,35 @@ import ProtectedRoute from './components/ProtectedRoute';
 function App() {
   return (
     <AppProvider>
-      <div className="min-h-screen py-6 px-4 md:py-8 md:px-6 lg:py-10 lg:px-8">
-        <div className="max-w-7xl mx-auto">
-          <Routes>
-            <Route path="/" element={<Auth />} />
-            <Route 
-              path="/dashboard" 
-              element={
-                <ProtectedRoute>
-                  <Dashboard />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/profile" 
-              element={
-                <ProtectedRoute>
-                  <Profile />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/book/:bookId" 
-              element={
-                <ProtectedRoute>
-                  <BookDetail />
-                </ProtectedRoute>
-              } 
-            />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </div>
-      </div>
+      {/* Completely clean - no padding, no max-width constraints */}
+      <Routes>
+        <Route path="/" element={<Auth />} />
+        <Route 
+          path="/dashboard" 
+          element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/profile" 
+          element={
+            <ProtectedRoute>
+              <Profile />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/book/:bookId" 
+          element={
+            <ProtectedRoute>
+              <BookDetail />
+            </ProtectedRoute>
+          } 
+        />
+        <Route path="*" element={<NotFound />} />
+      </Routes>
     </AppProvider>
   );
 }

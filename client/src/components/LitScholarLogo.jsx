@@ -1,6 +1,6 @@
 import React from 'react';
 
-const BookBuddyLogo = ({ className = "w-10 h-10", animated = true }) => {
+const LitScholarLogo = ({ className = "w-10 h-10", animated = true }) => {
   return (
     <svg 
       viewBox="0 0 100 100" 
@@ -48,7 +48,7 @@ const BookBuddyLogo = ({ className = "w-10 h-10", animated = true }) => {
       <path d="M22 63 L78 63" stroke="white" strokeWidth="1.5" strokeDasharray="4 4" opacity="0.8"/>
       <path d="M22 70 L78 70" stroke="white" strokeWidth="1.5" strokeDasharray="4 4" opacity="0.8"/>
       
-      {/* AI/Brain symbol */}
+      {/* Scholar's cap/AI symbol */}
       <circle 
         cx="70" 
         cy="35" 
@@ -71,7 +71,7 @@ const BookBuddyLogo = ({ className = "w-10 h-10", animated = true }) => {
       <circle cx="55" cy="45" r="8" fill="white" fillOpacity="0.9" stroke="url(#gradStroke)" strokeWidth="2"/>
       <path d="M43 45 L47 45" stroke="url(#gradStroke)" strokeWidth="2.5"/>
       
-      {/* Small star for magic effect */}
+      {/* Small star for scholarly excellence */}
       <path 
         d="M80 65 L82 69 L86 70 L82 71 L80 75 L78 71 L74 70 L78 69 L80 65" 
         fill="white" 
@@ -136,4 +136,4 @@ const BookBuddyLogo = ({ className = "w-10 h-10", animated = true }) => {
   );
 };
 
-export default BookBuddyLogo;
+export default LitScholarLogo;
