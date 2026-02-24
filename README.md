@@ -1,6 +1,5 @@
 # 📚 LitScholar - AI-Powered Virtual Librarian
 
-![LitScholar Logo](public/litscholar-icon.svg)
 
 LitScholar is an intelligent virtual librarian that understands natural language queries and recommends books with human-like reasoning. It combines modern AI/ML techniques with a robust full-stack architecture to provide personalized book recommendations and scholarly insights.
 
@@ -278,3 +277,4 @@ conda env create -f environment.yml
 ---
 
 Built with ❤️ by Rajnish Kumar
+
