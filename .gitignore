@@ -39,6 +39,8 @@ htmlcov/
 .DS_Store
 Thumbs.db
 desktop.ini
+*.swp
+*.swo
 
 # ===============================
 # Logs
@@ -86,8 +88,6 @@ pnpm-debug.log*
 # ===============================
 .vscode/
 .idea/
-*.swp
-*.swo
 
 # ===============================
 # Docker (future-proof)
@@ -95,19 +95,13 @@ pnpm-debug.log*
 docker-compose.override.yml
 
 # ===============================
-# Local data / experiments
+# Local temp data (NOT your main data!)
 # ===============================
-data/
-backend/data/raw/
 backend/data/temp/
+backend/data/*.tmp
 
 # ===============================
 # Databases
 # ===============================
 *.sqlite
 *.db
-
-
-AIM_EASY.txt
-AIM_MEDIUM.txt
-AIM_TOP_LEVEL.txt

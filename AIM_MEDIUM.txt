@@ -1,0 +1,32 @@
+Project Name: BookBuddy (Practical Version)
+
+Goal:
+Build a local virtual librarian that can search, recommend, and explain books using retrieval-augmented generation.
+
+What this version does:
+- Semantic search over book descriptions
+- Explains why a book is recommended
+- Summarizes books in at least 50 words
+- Uses OCR text from book covers (no raw image reasoning yet)
+- Learns basic user preferences from interaction history
+
+Technologies used:
+- FastAPI
+- Chroma (text + OCR embeddings)
+- Supabase (books + user interactions)
+- OCR (Tesseract)
+- Ollama (RAG-based reasoning)
+
+What this version does NOT include:
+- Direct image understanding by the LLM
+- Advanced computer vision features
+- Agent graphs or multi-step planners
+
+Success criteria:
+- Book summaries feel librarian-like
+- Recommendations improve over time
+- System remains fully local and explainable
+
+Purpose:
+Create a portfolio-ready project that feels intelligent but remains manageable.
+EOF
