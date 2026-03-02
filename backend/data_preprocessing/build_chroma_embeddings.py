@@ -10,7 +10,7 @@ from sentence_transformers import SentenceTransformer
 
 DEBUG = True
 
-DB_FETCH_SIZE = 500          # for Supabase only
+DB_FETCH_SIZE = 500          # for ne only
 WARMUP_BATCH_SIZE = 8
 MAIN_BATCH_SIZE = 128
 MAX_LENGTH = 256
@@ -18,7 +18,7 @@ MAX_LENGTH = 256
 CSV_PATH = "backend/data/books_clean.csv"
 
 load_dotenv()
-DATABASE_URL = os.getenv("DATABASE_URL")
+DB_URL_NEON = os.getenv("DB_URL_NEON")
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 CHROMA_DIR = "backend/chroma_store"
@@ -62,10 +62,10 @@ def build_embedding_text(row):
 
 def load_from_supabase(offset: int):
     """Fetch a chunk from Supabase (safe pagination)"""
-    if not DATABASE_URL:
-        raise ValueError("DATABASE_URL not set")
+    if not DB_URL_NEON:
+        raise ValueError("DB_URL_NEON not set")
 
-    with psycopg.connect(DATABASE_URL) as conn:
+    with psycopg.connect(DB_URL_NEON) as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """

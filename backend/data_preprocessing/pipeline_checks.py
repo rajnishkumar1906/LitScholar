@@ -6,7 +6,7 @@ from chromadb.config import Settings
 
 load_dotenv()
 
-DATABASE_URL = os.getenv("DATABASE_URL")
+DB_URL_NEON = os.getenv("DB_URL_NEON")
 CLEAN_CSV_PATH = "backend/data/books_clean.csv"
 CHROMA_DIR = "backend/chroma_store"
 
@@ -17,11 +17,11 @@ def cleaned_csv_ready() -> bool:
 
 
 # ---------- SUPABASE CHECK ----------
-def supabase_has_books() -> bool:
-    if not DATABASE_URL:
+def neondb_has_books() -> bool:
+    if not DB_URL_NEON:
         return False
 
-    with psycopg.connect(DATABASE_URL) as conn:
+    with psycopg.connect(DB_URL_NEON) as conn:
         with conn.cursor() as cur:
             cur.execute("SELECT COUNT(*) FROM books;")
             count = cur.fetchone()[0]
@@ -29,17 +29,35 @@ def supabase_has_books() -> bool:
     return count > 0
 
 
+# # ---------- CHROMA CHECK ----------
+# def chroma_has_embeddings(collection_name: str = "books") -> bool:
+#     if not os.path.exists(CHROMA_DIR):
+#         return False
+
+#     client = chromadb.Client(
+#         Settings(persist_directory=CHROMA_DIR)
+#     )
+
+#     try:
+#         collection = client.get_collection(collection_name)
+#         return collection.count() > 0
+#     except Exception:
+#         return False
+
+
+
 # ---------- CHROMA CHECK ----------
 def chroma_has_embeddings(collection_name: str = "books") -> bool:
     if not os.path.exists(CHROMA_DIR):
         return False
 
-    client = chromadb.Client(
-        Settings(persist_directory=CHROMA_DIR)
-    )
-
     try:
+        # Use the SAME method that created the embeddings
+        client = chromadb.PersistentClient(path=CHROMA_DIR)
         collection = client.get_collection(collection_name)
-        return collection.count() > 0
-    except Exception:
+        count = collection.count()
+        print(f"📊 Found {count} embeddings in Chroma")
+        return count > 0
+    except Exception as e:
+        print(f"⚠️ Chroma check error: {e}")
         return False

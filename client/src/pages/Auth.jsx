@@ -108,7 +108,7 @@ export default function Auth() {
               <LitScholarLogo className="w-12 h-12 text-white" />
             </div>
             <h1 className="text-2xl font-bold text-amber-900">
-              LitScholarLogo
+              LitScholar
             </h1>
           </div>
 

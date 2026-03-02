@@ -2,7 +2,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     # Database
-    DATABASE_URL: str
+    DB_URL_NEON: str
 
     # JWT Settings
     JWT_SECRET: str = "dev-secret-change-this-in-production"

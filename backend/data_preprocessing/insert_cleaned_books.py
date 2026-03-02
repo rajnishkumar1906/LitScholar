@@ -5,14 +5,14 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-DATABASE_URL = os.getenv("DATABASE_URL")
+DB_URL_NEON = os.getenv("DB_URL_NEON")
 CLEAN_CSV = "backend/data/books_clean.csv"
 BATCH_SIZE = 1000
 
 
 def main():
-    if not DATABASE_URL:
-        raise ValueError("DATABASE_URL not set")
+    if not DB_URL_NEON:
+        raise ValueError("DB_URL_NEON not set")
 
     print(f"📥 Loading clean CSV: {CLEAN_CSV}")
 
@@ -52,7 +52,7 @@ def main():
 
     inserted = 0
 
-    with psycopg.connect(DATABASE_URL) as conn:
+    with psycopg.connect(DB_URL_NEON) as conn:
         with conn.cursor() as cur:
             for start in range(0, total, BATCH_SIZE):
                 batch = rows[start:start + BATCH_SIZE]
@@ -64,7 +64,7 @@ def main():
 
         conn.commit()
 
-    print("✅ Supabase insert step completed safely")
+    print("✅ Neon database insert step completed safely")
 
 
 if __name__ == "__main__":

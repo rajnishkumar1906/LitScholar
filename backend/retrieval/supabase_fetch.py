@@ -20,7 +20,7 @@ def fetch_books_by_ids(book_ids: list[str]):
         WHERE book_id IN ({placeholders});
     """
 
-    with psycopg.connect(settings.DATABASE_URL) as conn:
+    with psycopg.connect(settings.DB_URL_NEON) as conn:
         with conn.cursor() as cur:
             cur.execute(query, book_ids)
             rows = cur.fetchall()
