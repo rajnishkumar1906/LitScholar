@@ -5,6 +5,37 @@ import { useState } from 'react';
 const BookDataCard = ({ book, showFollowUp, setShowFollowUp }) => {
   const [showSummary, setShowSummary] = useState(false);
 
+  // Parse genres - handle both string and array formats and clean them
+  const parseGenres = (genres) => {
+    if (!genres) return [];
+    
+    let genreArray = [];
+    
+    // If it's already an array
+    if (Array.isArray(genres)) {
+      genreArray = genres;
+    } 
+    // If it's a string, try to parse it
+    else if (typeof genres === 'string') {
+      // Remove brackets, quotes, and clean up
+      let cleaned = genres
+        .replace(/[\[\]']/g, '') // Remove [, ], '
+        .replace(/\s+/g, ' ') // Normalize spaces
+        .trim();
+      
+      // Split by comma and clean each genre
+      genreArray = cleaned.split(',').map(g => g.trim()).filter(g => g);
+    }
+    
+    // Final cleaning - remove any remaining unwanted characters
+    return genreArray.map(g => 
+      g.replace(/[\[\]']/g, '') // Remove any stray brackets or quotes
+       .trim()
+    ).filter(g => g); // Remove empty strings
+  };
+
+  const genres = parseGenres(book.genres);
+
   // Inline styles for slide animation
   const slideDownStyle = {
     animation: 'slideDown 0.3s ease-out forwards',
@@ -26,12 +57,10 @@ const BookDataCard = ({ book, showFollowUp, setShowFollowUp }) => {
 
   return (
     <>
-      {/* Add animation styles to head */}
       <style>{animationStyle}</style>
       
       <div className="bg-white/95 backdrop-blur-sm rounded-3xl shadow-xl border border-gray-200 overflow-hidden mb-8">
         <div className="p-8">
-          {/* Top Section - Book Cover and Details */}
           <div className="grid md:grid-cols-3 gap-8">
             {/* Book Cover */}
             <div className="md:col-span-1">
@@ -55,12 +84,10 @@ const BookDataCard = ({ book, showFollowUp, setShowFollowUp }) => {
 
             {/* Book Info */}
             <div className="md:col-span-2">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="px-3 py-1 bg-amber-100 text-amber-900 rounded-full text-xs font-medium">
-                  {book.genres?.split(',')[0]?.trim() || 'General'}
-                </span>
+              {/* Rating */}
+              <div className="flex justify-end mb-2">
                 {book.rating && (
-                  <div className="flex items-center gap-1 text-amber-600">
+                  <div className="flex items-center gap-1 text-amber-600 bg-amber-50 px-3 py-1 rounded-full">
                     <FaStar className="w-4 h-4" />
                     <span className="text-sm font-medium">{book.rating}</span>
                   </div>
@@ -70,22 +97,22 @@ const BookDataCard = ({ book, showFollowUp, setShowFollowUp }) => {
               <h1 className="text-4xl font-bold text-gray-900 mb-2">{book.title}</h1>
               <p className="text-xl text-gray-600 mb-6">by {book.author}</p>
 
+              {/* Genres - Clean display without symbols */}
+              {genres.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-6">
+                  {genres.map((genre, index) => (
+                    <span
+                      key={index}
+                      className="px-3 py-1.5 bg-gradient-to-r from-amber-50 to-amber-100 text-amber-800 rounded-full text-xs font-medium border border-amber-200"
+                    >
+                      {genre}
+                    </span>
+                  ))}
+                </div>
+              )}
+
               {/* Meta Info Grid */}
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
-                <div className="flex items-center gap-2 text-gray-600 bg-gray-50 p-3 rounded-xl">
-                  <FaUser className="w-4 h-4 text-amber-700" />
-                  <div>
-                    <p className="text-xs text-gray-500">Author</p>
-                    <p className="text-sm font-medium">{book.author}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 text-gray-600 bg-gray-50 p-3 rounded-xl">
-                  <FaLayerGroup className="w-4 h-4 text-amber-700" />
-                  <div>
-                    <p className="text-xs text-gray-500">Genre</p>
-                    <p className="text-sm font-medium">{book.genres}</p>
-                  </div>
-                </div>
                 {book.num_pages && (
                   <div className="flex items-center gap-2 text-gray-600 bg-gray-50 p-3 rounded-xl">
                     <FaFileAlt className="w-4 h-4 text-amber-700" />
@@ -95,6 +122,7 @@ const BookDataCard = ({ book, showFollowUp, setShowFollowUp }) => {
                     </div>
                   </div>
                 )}
+                
                 {book.published_year && (
                   <div className="flex items-center gap-2 text-gray-600 bg-gray-50 p-3 rounded-xl">
                     <FaCalendar className="w-4 h-4 text-amber-700" />
@@ -104,6 +132,7 @@ const BookDataCard = ({ book, showFollowUp, setShowFollowUp }) => {
                     </div>
                   </div>
                 )}
+                
                 {book.publisher && (
                   <div className="flex items-center gap-2 text-gray-600 bg-gray-50 p-3 rounded-xl">
                     <FaBuilding className="w-4 h-4 text-amber-700" />
@@ -113,6 +142,7 @@ const BookDataCard = ({ book, showFollowUp, setShowFollowUp }) => {
                     </div>
                   </div>
                 )}
+                
                 {book.isbn && (
                   <div className="flex items-center gap-2 text-gray-600 bg-gray-50 p-3 rounded-xl">
                     <FaBarcode className="w-4 h-4 text-amber-700" />
@@ -140,10 +170,7 @@ const BookDataCard = ({ book, showFollowUp, setShowFollowUp }) => {
                 >
                   <FaBookOpen className="w-5 h-5" />
                   {showSummary ? 'Hide Summary' : 'View Summary'}
-                  {showSummary ? 
-                    <FaChevronUp className="w-4 h-4" /> : 
-                    <FaChevronDown className="w-4 h-4" />
-                  }
+                  {showSummary ? <FaChevronUp className="w-4 h-4" /> : <FaChevronDown className="w-4 h-4" />}
                 </button>
                 <button
                   onClick={() => setShowFollowUp(!showFollowUp)}
@@ -159,37 +186,19 @@ const BookDataCard = ({ book, showFollowUp, setShowFollowUp }) => {
             </div>
           </div>
 
-          {/* Summary Panel - Shows at bottom when toggled */}
+          {/* Summary Panel */}
           {showSummary && (
-            <div 
-              className="mt-8 pt-8 border-t border-amber-200"
-              style={slideDownStyle}
-            >
+            <div className="mt-8 pt-8 border-t border-amber-200" style={slideDownStyle}>
               <div className="bg-gradient-to-br from-amber-50 to-amber-100/50 rounded-2xl p-6 border border-amber-200">
-                {/* Summary Header */}
                 <div className="flex items-center gap-3 mb-4">
                   <div className="p-2 bg-amber-200 rounded-xl">
                     <FaBookOpen className="w-5 h-5 text-amber-800" />
                   </div>
                   <h3 className="text-lg font-semibold text-amber-900">Book Summary</h3>
                 </div>
-
-                {/* Summary Content */}
-                <div className="space-y-4">
-                  <p className="text-gray-700 leading-relaxed">
-                    {book.summary || book.description || "No summary available for this book."}
-                  </p>
-
-                  {/* Reading Time Estimate */}
-                  {(book.summary || book.description) && (
-                    <div className="mt-4 pt-4 border-t border-amber-200 flex items-center gap-2 text-xs text-amber-700">
-                      <FaBookOpen className="w-3 h-3" />
-                      <span>~{Math.ceil((book.summary || book.description).split(' ').length / 200)} min read</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Close Summary Button (Mobile) */}
+                <p className="text-gray-700 leading-relaxed">
+                  {book.summary || book.description || "No summary available for this book."}
+                </p>
                 <button
                   onClick={() => setShowSummary(false)}
                   className="mt-4 w-full md:hidden flex items-center justify-center gap-2 px-4 py-2 bg-amber-200 text-amber-800 rounded-xl text-sm font-medium"

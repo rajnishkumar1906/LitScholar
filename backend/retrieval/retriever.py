@@ -5,7 +5,8 @@ from retrieval.chroma_client import get_chroma_collection
 model = SentenceTransformer("all-mpnet-base-v2", device="cpu")
 
 # Distance threshold (cosine distance, lower = better)
-MAX_DISTANCE = 0.6
+# Slightly relaxed so we don't drop reasonable matches.
+MAX_DISTANCE = 0.7
 
 def search_books(
     query: str,
@@ -28,9 +29,9 @@ def search_books(
         return []
 
     collection = get_chroma_collection()
-    print(f'Collection count : {collection.count()}')
+    print(f"Collection count : {collection.count()}")
 
-    print(f'Query : {query}')
+    print(f"Query : {query}")
     # Encode query
     query_embedding = model.encode(
         query,
@@ -44,7 +45,7 @@ def search_books(
         n_results=top_k,
     )
 
-    print(f'Raw Chroma ids : {results.get('ids',[[]])[0]}')
+    print(f"Raw Chroma ids : {results.get('ids', [[]])[0]}")
     
     if not results or not results.get("ids") or not results["ids"][0]:
         print(f"[search_books] No results at all for query '{query}'")
@@ -79,8 +80,22 @@ def search_books(
         })
         
     print(f"[search_books] After filtering: {len(books)} books kept")
-    if books:
-        print(f'Kept books: {[b['book_id'] for b in books]}')    
-    else:
-        print('No books passed the distance/score filter')
+
+    # If everything was filtered out, fall back to the raw top_k results
+    # so the user still sees books instead of an empty answer.
+    if not books:
+        print("[search_books] No books passed the distance/score filter; falling back to unfiltered top_k")
+        books = []
+        for i in range(len(results["ids"][0])):
+            book_id = results["ids"][0][i]
+            distance = results["distances"][0][i]
+            score = 1.0 - distance
+            books.append(
+                {
+                    "book_id": book_id,
+                    "score": round(score, 4),
+                }
+            )
+
+    print(f"[search_books] Final kept books: {[b['book_id'] for b in books]}")
     return books

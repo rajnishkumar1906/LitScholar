@@ -1,5 +1,5 @@
 from retriever import search_books
-from supabase_fetch import fetch_books_by_ids
+from backend.retrieval.neon_fetch import fetch_books_by_ids
 
 if __name__ == "__main__":
     queries = [

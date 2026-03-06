@@ -1,20 +1,23 @@
-from fastapi import APIRouter, HTTPException, Depends, Request
+from fastapi import APIRouter, HTTPException, Depends, Request, Response
 from fastapi.responses import RedirectResponse
-from auth.schemas import LoginRequest, RegisterRequest, RefreshRequest, TokenResponse
-from core.security import create_access_token
+from auth.schemas import LoginRequest, RegisterRequest
+from core.security import create_access_token, create_refresh_token
 from core.db import get_db
 from core.config import settings
 from auth.oauth import oauth
-from authlib.integrations.starlette_client import OAuth
 import bcrypt
 import secrets
 from datetime import datetime, timedelta
-
+from jose import jwt
 
 router = APIRouter()
 
-@router.post("/login", response_model=TokenResponse)
-def login(data: LoginRequest, db=Depends(get_db)):
+@router.post("/login")
+async def login(
+    response: Response,
+    data: LoginRequest, 
+    db=Depends(get_db)
+):
     with db.cursor() as cur:
         cur.execute(
             "SELECT id, password_hash FROM users WHERE email=%s",
@@ -37,7 +40,6 @@ def login(data: LoginRequest, db=Depends(get_db)):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
     access_token = create_access_token({"sub": data.email})
-
     refresh_token = secrets.token_urlsafe(32)
     expires_at = datetime.utcnow() + timedelta(days=7)
 
@@ -51,39 +53,103 @@ def login(data: LoginRequest, db=Depends(get_db)):
         )
         db.commit()
 
-    return {
-        "access_token": access_token,
-        "refresh_token": refresh_token,
-        "token_type": "bearer",
-    }
+    # Set cookies
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        secure=False,
+        samesite="lax",
+        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        path="/",
+    )
+    
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,
+        secure=False,
+        samesite="lax",
+        max_age=7 * 24 * 60 * 60,
+        path="/",
+    )
 
-# REGISTER
+    return {"success": True, "message": "Login successful", "email": data.email}
+
 @router.post("/register")
-def register(data: RegisterRequest, db=Depends(get_db)):
+async def register(
+    response: Response,
+    data: RegisterRequest, 
+    db=Depends(get_db)
+):
+    # Check if user exists
+    with db.cursor() as cur:
+        cur.execute("SELECT id FROM users WHERE email=%s", (data.email,))
+        if cur.fetchone():
+            raise HTTPException(status_code=400, detail="Email already registered")
+
+    # Hash password
     hashed = bcrypt.hashpw(data.password.encode(), bcrypt.gensalt()).decode()
 
+    # Insert user
     with db.cursor() as cur:
         cur.execute(
-            "SELECT 1 FROM users WHERE email=%s",
-            (data.email,),
-        )
-        if cur.fetchone():
-            raise HTTPException(
-                status_code=400,
-                detail="Email already registered",
-            )
-
-        cur.execute(
-            "INSERT INTO users (email, password_hash) VALUES (%s, %s)",
+            "INSERT INTO users (email, password_hash) VALUES (%s, %s) RETURNING id",
             (data.email, hashed),
+        )
+        user_id = cur.fetchone()[0]
+        db.commit()
+
+    # Create tokens
+    access_token = create_access_token({"sub": data.email})
+    refresh_token = secrets.token_urlsafe(32)
+    expires_at = datetime.utcnow() + timedelta(days=7)
+
+    # Store refresh token
+    with db.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO refresh_tokens (token, user_id, expires_at)
+            VALUES (%s, %s, %s)
+            """,
+            (refresh_token, user_id, expires_at),
         )
         db.commit()
 
-    return {"status": "user created"}
+    # Set cookies
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        secure=False,
+        samesite="lax",
+        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        path="/",
+    )
+    
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,
+        secure=False,
+        samesite="lax",
+        max_age=7 * 24 * 60 * 60,
+        path="/",
+    )
 
-# REFRESH TOKEN
+    return {"success": True, "message": "Registration successful", "email": data.email}
+
 @router.post("/refresh")
-def refresh(data: RefreshRequest, db=Depends(get_db)):
+async def refresh(
+    request: Request,
+    response: Response,
+    db=Depends(get_db)
+):
+    refresh_token = request.cookies.get("refresh_token")
+    
+    if not refresh_token:
+        raise HTTPException(status_code=401, detail="No refresh token")
+    
     with db.cursor() as cur:
         cur.execute(
             """
@@ -92,7 +158,7 @@ def refresh(data: RefreshRequest, db=Depends(get_db)):
             JOIN users u ON r.user_id = u.id
             WHERE r.token = %s AND r.expires_at > NOW()
             """,
-            (data.refresh_token,),
+            (refresh_token,),
         )
         row = cur.fetchone()
 
@@ -102,56 +168,54 @@ def refresh(data: RefreshRequest, db=Depends(get_db)):
     email = row[0]
     new_access_token = create_access_token({"sub": email})
 
-    return {
-        "access_token": new_access_token,
-        "token_type": "bearer",
-    }
+    response.set_cookie(
+        key="access_token",
+        value=new_access_token,
+        httponly=True,
+        secure=False,
+        samesite="lax",
+        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        path="/",
+    )
 
+    return {"success": True, "message": "Token refreshed"}
+
+@router.post("/logout")
+async def logout(response: Response):
+    response.delete_cookie("access_token", path="/")
+    response.delete_cookie("refresh_token", path="/")
+    return {"success": True, "message": "Logged out"}
 
 @router.get("/google/login")
 async def google_login(request: Request):
-    print("=== GOOGLE LOGIN START ===")
-    print("GOOGLE_CLIENT_ID:", settings.GOOGLE_CLIENT_ID[:10] + "..." if settings.GOOGLE_CLIENT_ID else "MISSING")
-    print("GOOGLE_CLIENT_SECRET:", settings.GOOGLE_CLIENT_SECRET[:5] + "..." if settings.GOOGLE_CLIENT_SECRET else "MISSING")
-    print("GOOGLE_REDIRECT_URI:", settings.GOOGLE_REDIRECT_URI)
-
     if not settings.GOOGLE_REDIRECT_URI:
         raise HTTPException(status_code=500, detail="GOOGLE_REDIRECT_URI not configured")
 
     try:
-        # Best practice: request offline access + force consent screen
         redirect_resp = await oauth.google.authorize_redirect(
             request,
             redirect_uri=settings.GOOGLE_REDIRECT_URI,
-            access_type="offline",  # Ensures refresh_token is possible (optional but good)
-            prompt="consent"        # Forces Google to show consent even if already approved
+            access_type="offline",
+            prompt="consent"
         )
-        print("Redirecting user to Google:", redirect_resp.headers.get("location", "MISSING LOCATION"))
         return redirect_resp
     except Exception as e:
-        print("OAuth redirect failed:", str(e))
         raise HTTPException(status_code=500, detail=f"OAuth redirect error: {str(e)}")
 
-
-# GOOGLE CALLBACK - handle redirect from Google
 @router.get("/google/callback")
-async def google_callback(request: Request, db=Depends(get_db)):
-    print("=== GOOGLE CALLBACK RECEIVED ===")
-    print("Query params:", dict(request.query_params))
-
+async def google_callback(
+    request: Request,
+    response: Response,
+    db=Depends(get_db)
+):
     try:
-        # Exchange code for tokens
         token = await oauth.google.authorize_access_token(request)
-        print("[Callback] Tokens received keys:", list(token.keys()))
-
-        # Get user info
         user_info = token.get("userinfo")
+        
         if not user_info:
             raise ValueError("No userinfo in token response")
 
         email = user_info.get("email")
-        print(f"[Callback] User email: {email}")
-
         if not email:
             raise ValueError("Email not provided by Google")
 
@@ -162,9 +226,7 @@ async def google_callback(request: Request, db=Depends(get_db)):
 
             if row:
                 user_id = row[0]
-                print(f"[Callback] Existing user found, ID: {user_id}")
             else:
-                print("[Callback] New user - creating record")
                 cur.execute(
                     """
                     INSERT INTO users (email, password_hash)
@@ -176,7 +238,7 @@ async def google_callback(request: Request, db=Depends(get_db)):
                 user_id = cur.fetchone()[0]
                 db.commit()
 
-        # Create your app's JWT tokens
+        # Create tokens
         access_token = create_access_token({"sub": email})
         refresh_token = secrets.token_urlsafe(32)
         expires_at = datetime.utcnow() + timedelta(days=7)
@@ -192,15 +254,30 @@ async def google_callback(request: Request, db=Depends(get_db)):
             )
             db.commit()
 
-        # Build frontend redirect URL
-        frontend_url = settings.FRONTEND_URL.rstrip('/')  # remove trailing slash if any
-        redirect_url = f"{frontend_url}/?access_token={access_token}&refresh_token={refresh_token}"
+        # Set cookies
+        response.set_cookie(
+            key="access_token",
+            value=access_token,
+            httponly=True,
+            secure=False,
+            samesite="lax",
+            max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+            path="/",
+        )
+        
+        response.set_cookie(
+            key="refresh_token",
+            value=refresh_token,
+            httponly=True,
+            secure=False,
+            samesite="lax",
+            max_age=7 * 24 * 60 * 60,
+            path="/",
+        )
 
-        print(f"[Callback] Redirecting to frontend: {redirect_url}")
-        return RedirectResponse(url=redirect_url)
+        frontend_url = settings.FRONTEND_URL.rstrip('/')
+        return RedirectResponse(url=f"{frontend_url}/dashboard")
 
     except Exception as e:
-        print(f"[Callback] ERROR: {str(e)}")
-        # Optional: redirect to error page instead of raising
-        error_url = f"{settings.FRONTEND_URL}/?error=google_auth_failed&error_description={str(e)}"
+        error_url = f"{settings.FRONTEND_URL}/?error=google_auth_failed"
         return RedirectResponse(url=error_url)

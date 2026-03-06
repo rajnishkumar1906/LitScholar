@@ -1,23 +1,22 @@
-// src/pages/BookDetail.jsx
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import {
   FaArrowLeft, FaBook, FaUser, FaLayerGroup, FaFileAlt,
   FaCalendar, FaBuilding, FaBarcode, FaStar, FaRobot,
-  FaQuestionCircle, FaSpinner
+  FaQuestionCircle, FaSpinner, FaCheckCircle
 } from 'react-icons/fa';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import NotFound from './NotFound';
 import BookDataCard from '../components/BookDataCard';
 import { useApp } from '../context/AppContext';
-
+import { toast } from 'react-toastify';
 
 export default function BookDetail() {
-  const { bookId } = useParams();
+  const { bookId } = useParams();  
   const location = useLocation();
   const navigate = useNavigate();
-  const { getBookById, askFollowUp } = useApp();
+  const { getBookById, askFollowUp, finishBook, loadProfile } = useApp();
 
   const [book, setBook] = useState(location.state?.book || null);
   const [loading, setLoading] = useState(!location.state?.book);
@@ -26,22 +25,38 @@ export default function BookDetail() {
   const [followUpAnswer, setFollowUpAnswer] = useState('');
   const [isAsking, setIsAsking] = useState(false);
   const [citations, setCitations] = useState({});
+  const [isFinishing, setIsFinishing] = useState(false);
+  const [isFinished, setIsFinished] = useState(false);
 
-  // Fetch book if not passed via state
   useEffect(() => {
-    if (!book && bookId) {
-      const fetchBook = async () => {
-        const result = await getBookById(bookId);
-        if (result.success) {
-          setBook(result.book);
-        } else {
-          navigate('/dashboard');
-        }
-        setLoading(false);
-      };
-      fetchBook();
+    if (!bookId) return;
+
+    const fetchBook = async () => {
+      setLoading(true);
+      const result = await getBookById(bookId);
+      if (result.success) {
+        setBook(result.book);
+        // Check if already finished (you'd need an endpoint for this)
+        checkIfFinished(bookId);
+      } else if (!book) {
+        navigate('/dashboard');
+      }
+      setLoading(false);
+    };
+
+    fetchBook();
+  }, [bookId, getBookById, navigate]);
+
+  // Add function to check if book is already finished
+  const checkIfFinished = async (bookId) => {
+    try {
+      // You'd need an endpoint to check this
+      // For now, we'll just set to false
+      setIsFinished(false);
+    } catch (error) {
+      console.error('Error checking finished status:', error);
     }
-  }, [bookId, book, navigate, getBookById]);
+  };
 
   const handleFollowUpSubmit = async (e) => {
     e.preventDefault();
@@ -51,7 +66,6 @@ export default function BookDetail() {
     setFollowUpAnswer('');
     setCitations({});
 
-    // Scope question with current book so the assistant uses this book as context
     const scopedQuestion = book.title && book.author
       ? `${book.title} by ${book.author}. ${book.description ? book.description.slice(0, 200) + '. ' : ''}Question: ${followUpQuestion}`
       : followUpQuestion;
@@ -67,10 +81,24 @@ export default function BookDetail() {
 
   const handleSuggestedQuestion = (question) => {
     setFollowUpQuestion(question);
-    // Auto-submit after setting question
     setTimeout(() => {
-      handleFollowUpSubmit({ preventDefault: () => { } });
+      handleFollowUpSubmit({ preventDefault: () => {} });
     }, 100);
+  };
+
+  const handleMarkAsFinished = async () => {
+    if (!book) return;
+    
+    setIsFinishing(true);
+    const result = await finishBook(book.book_id || book.id);
+    
+    if (result.success) {
+      setIsFinished(true);
+      // Refresh profile to update reading goal
+      await loadProfile();
+    }
+    
+    setIsFinishing(false);
   };
 
   // Loading state
@@ -89,20 +117,50 @@ export default function BookDetail() {
   }
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen flex flex-col">
       <Navbar />
 
-      <main className="max-w-6xl mx-auto px-4 py-8">
-        {/* Back button */}
-        <button
-          onClick={() => navigate('/dashboard')}
-          className="flex items-center gap-2 text-white text-2xl font-bold hover:text-amber-800 mb-6 transition-colors group"
-        >
-          <FaArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-          Back to search results
-        </button>
+      <main className="flex-1 max-w-6xl mx-auto px-4 py-8 w-full">
+        {/* Back button and finish button row */}
+        <div className="flex justify-between items-center mb-6">
+          <button
+            onClick={() => navigate('/dashboard')}
+            className="flex items-center gap-2 text-white text-2xl font-bold hover:text-amber-800 transition-colors group"
+          >
+            <FaArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+            Back
+          </button>
+          
+          {/* Mark as Finished Button */}
+          <button
+            onClick={handleMarkAsFinished}
+            disabled={isFinishing || isFinished}
+            className={`px-6 py-3 rounded-xl font-medium flex items-center gap-2 transition-all ${
+              isFinished 
+                ? 'bg-green-100 text-green-700 border border-green-300 cursor-default'
+                : 'bg-gradient-to-r from-amber-800 to-amber-900 text-white hover:shadow-lg'
+            }`}
+          >
+            {isFinishing ? (
+              <>
+                <FaSpinner className="w-4 h-4 animate-spin" />
+                <span>Marking...</span>
+              </>
+            ) : isFinished ? (
+              <>
+                <FaCheckCircle className="w-4 h-4" />
+                <span>Finished!</span>
+              </>
+            ) : (
+              <>
+                <FaCheckCircle className="w-4 h-4" />
+                <span>Mark as Finished</span>
+              </>
+            )}
+          </button>
+        </div>
 
-      {/* Book details */}
+        {/* Book details */}
         <BookDataCard
           book={book}
           showFollowUp={showFollowUp}

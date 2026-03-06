@@ -1,15 +1,52 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import SearchBar from '../components/SearchBar';
 import BookCard from '../components/BookCard';
 import { useApp } from '../context/AppContext';
+import ToggleButton from '../components/ToggleButton';
+
+function BookTile({ book, onClick }) {
+  return (
+    <div
+      onClick={() => onClick(book)}
+      className="group cursor-pointer"
+    >
+      <div className="bg-white/90 rounded-lg shadow hover:shadow-md transition-all duration-300 overflow-hidden">
+        <div className="relative w-full aspect-[3/4] bg-gradient-to-br from-amber-100 to-amber-200">
+          {book.image_url ? (
+            <img src={book.image_url} alt={book.title} className="w-full h-full object-cover" />
+          ) : (
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <span className="text-3xl mb-1">📖</span>
+            </div>
+          )}
+          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+            <span className="bg-white text-amber-700 px-2 py-1 rounded-full font-medium text-[10px]">View</span>
+          </div>
+        </div>
+        <div className="p-2">
+          <h3 className="font-bold text-gray-800 text-xs mb-0.5 line-clamp-1 group-hover:text-amber-700 transition">{book.title}</h3>
+          <p className="text-[10px] text-gray-600 mb-1 truncate">{book.author}</p>
+          <span className="text-[8px] px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded-full font-medium">
+            {book.genres?.split(',')[0]?.trim() || book.genre || book.category || 'General'}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { searchBooks, searchResults, isSearching, lastQuery } = useApp();
+  const { searchBooks, searchResults, isSearching, lastQuery, fetchRecommendedSections, trackBook } = useApp();
   const [searchError, setSearchError] = useState('');
+  const [showSearchSection, setShowSearchSection] = useState(false);
+  const [isRotating, setIsRotating] = useState(false);
+
+  const [sections, setSections] = useState({ for_you: [], popular: [], by_genre: [] });
+  const [loading, setLoading] = useState(false);
 
   const handleSearch = async (query) => {
     const trimmedQuery = query.trim();
@@ -25,79 +62,103 @@ export default function Dashboard() {
   };
 
   const handleBookClick = (book) => {
-    if (book?.id) {
-      navigate(`/book/${book.id}`, { state: { book } });
-    }
+    const id = book?.id || book?.book_id;
+    if (!id) return;
+
+    trackBook(id);
+    navigate(`/book/${id}`, { state: { book } });
   };
+
+  const handleToggle = () => {
+    setIsRotating(true);
+
+    setTimeout(() => {
+      setShowSearchSection(!showSearchSection);
+    }, 150);
+
+    setTimeout(() => {
+      setIsRotating(false);
+    }, 600);
+  };
+
+  useEffect(() => {
+    const loadSections = async () => {
+      setLoading(true);
+      const result = await fetchRecommendedSections();
+      if (result?.success) {
+        setSections({
+          for_you: result.for_you || [],
+          popular: result.popular || [],
+          by_genre: result.by_genre || [],
+        });
+      }
+      setLoading(false);
+    };
+    loadSections();
+  }, [fetchRecommendedSections]);
 
   const results = searchResults;
   const aiAnswer = results.length > 0 ? results[0]?.answer : null;
-
   const hasSearched = !!lastQuery;
 
-  // Sample recommended books
-  const recommendedBooks = [
-    { id: 'rec1', title: 'The Midnight Library', author: 'Matt Haig', rating: 4.5, category: 'Fiction' },
-    { id: 'rec2', title: 'Project Hail Mary', author: 'Andy Weir', rating: 4.7, category: 'Sci-Fi' },
-    { id: 'rec3', title: 'Atomic Habits', author: 'James Clear', rating: 4.8, category: 'Self-Help' },
-    { id: 'rec4', title: 'Dune', author: 'Frank Herbert', rating: 4.6, category: 'Sci-Fi' },
-    { id: 'rec5', title: 'The Silent Patient', author: 'Alex Michaelides', rating: 4.5, category: 'Mystery' },
-    { id: 'rec6', title: 'Educated', author: 'Tara Westover', rating: 4.7, category: 'Memoir' },
-  ];
-
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col relative">
       <Navbar />
 
-      <main className="flex-grow max-w-8xl mx-auto px-4 sm:px-6 lg:px-8 py-0 w-full">
-        <div className="flex flex-col lg:flex-row gap-8">
-
-          <div className="lg:w-1/2">
-            <div className="bg-white/10 backdrop-blur-md rounded-0xl border border-amber-100 shadow-xl p-5 sticky top-20">
-              <h2 className="text-xl font-bold text-amber-100 mb-4 flex items-center gap-2">
-                <span className="text-2xl">📚</span>
-                Recommended Books
-              </h2>
-
-              <div className="grid grid-cols-3 gap-10 max-h-[calc(100vh-180px)] overflow-y-auto pr-1 custom-scroll pb-2">
-                {recommendedBooks.map((book) => (
-                  <div
-                    key={book.id}
-                    onClick={() => handleBookClick(book)}
-                    className="cursor-pointer bg-white/80 hover:bg-amber-50/80 rounded-lg p-2 border border-amber-100 transition-all hover:shadow-md group"
-                  >
-                    <div className="flex flex-col">
-                      <div className="w-full aspect-[2/3] bg-gradient-to-br from-amber-100 to-amber-200 rounded-md mb-2 flex items-center justify-center">
-                        <span className="text-amber-800/30 text-xl">📖</span>
-                      </div>
-
-                      <div className="flex-1">
-                        <h4 className="font-semibold text-gray-800 text-xs group-hover:text-amber-900 line-clamp-2 mb-0.5">
-                          {book.title}
-                        </h4>
-                        <p className="text-xs text-gray-500 mb-1 truncate">{book.author}</p>
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded-full">
-                            {book.category}
-                          </span>
-                          <span className="text-[10px] text-amber-700">★ {book.rating}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+      <main className="flex-grow max-w-8xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
+        {/* Recommendations Section */}
+        {!showSearchSection && (
+          <div className="w-full animate-fadeIn space-y-10">
+            {loading ? (
+              <div className="flex justify-center items-center py-16">
+                <div className="w-10 h-10 border-2 border-amber-200 border-t-amber-800 rounded-full animate-spin" />
               </div>
+            ) : (
+              <>
+                {sections.for_you.length > 0 && (
+                  <section>
+                    <h2 className="text-2xl font-bold text-white mb-3">
+                      <span className="bg-gradient-to-r from-amber-600 to-amber-800 bg-clip-text text-transparent">Recommended for you</span>
+                    </h2>
+                    <p className="text-white/80 text-sm mb-4">Based on your reading</p>
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4 sm:gap-5">
+                      {sections.for_you.map((book) => (
+                        <BookTile key={book.book_id || book.id} book={book} onClick={handleBookClick} />
+                      ))}
+                    </div>
+                  </section>
+                )}
 
-              <button
-                onClick={() => handleSearch('popular books')}
-                className="w-full mt-4 px-3 py-2 bg-gradient-to-r from-amber-800 to-amber-900 text-white font-medium rounded-lg hover:shadow-lg transition-all text-xs"
-              >
-                More Recommendations →
-              </button>
-            </div>
+                <section>
+                  <h2 className="text-2xl font-bold text-white mb-3">
+                    <span className="bg-gradient-to-r from-amber-600 to-amber-800 bg-clip-text text-transparent">Popular</span>
+                  </h2>
+                  <p className="text-white/80 text-sm mb-4">Most viewed by readers</p>
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4 sm:gap-5">
+                    {sections.popular.map((book) => (
+                      <BookTile key={book.book_id || book.id} book={book} onClick={handleBookClick} />
+                    ))}
+                  </div>
+                </section>
+
+                {sections.by_genre.map(({ genre, books: genreBooks }) => (
+                  <section key={genre}>
+                    <h2 className="text-xl font-bold text-white mb-3">{genre}</h2>
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5">
+                      {genreBooks.map((book) => (
+                        <BookTile key={book.book_id || book.id} book={book} onClick={handleBookClick} />
+                      ))}
+                    </div>
+                  </section>
+                ))}
+              </>
+            )}
           </div>
+        )}
 
-          <div className="lg:w-2/3">
+        {/* Search Section */}
+        {showSearchSection && (
+          <div className="w-full max-w-7xl mx-auto animate-fadeIn">
             {/* Hero Text */}
             <div className="text-center mb-8">
               <h1 className="text-4xl md:text-5xl font-extrabold mb-4 tracking-tight">
@@ -199,6 +260,12 @@ export default function Dashboard() {
                 <p className="text-gray-700 mb-6">
                   Couldn't find books matching <span className="font-semibold">"{lastQuery}"</span>
                 </p>
+                <button
+                  onClick={() => setShowSearchSection(false)}
+                  className="px-6 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition"
+                >
+                  Browse Recommendations Instead
+                </button>
               </div>
             ) : (
               <div className="text-center">
@@ -222,21 +289,57 @@ export default function Dashboard() {
               </div>
             )}
           </div>
-        </div>
+        )}
       </main>
+
+      <ToggleButton
+        showSearchSection={showSearchSection}
+        onToggle={handleToggle}
+        isRotating={isRotating}
+      />
 
       <Footer />
 
       <style>{`
-        .custom-scroll::-webkit-scrollbar {
-          width: 4px;
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+            transform: translateY(10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
         }
-        .custom-scroll::-webkit-scrollbar-track {
-          background: rgba(241, 245, 249, 0.3);
+        
+        .animate-fadeIn {
+          animation: fadeIn 0.5s ease-out;
         }
-        .custom-scroll::-webkit-scrollbar-thumb {
-          background: rgba(180, 83, 9, 0.3);
-          border-radius: 4px;
+        
+        @keyframes spin {
+          from {
+            transform: rotate(0deg);
+          }
+          to {
+            transform: rotate(360deg);
+          }
+        }
+        
+        @keyframes spin-reverse {
+          from {
+            transform: rotate(0deg);
+          }
+          to {
+            transform: rotate(-360deg);
+          }
+        }
+        
+        .animate-spin {
+          animation: spin 0.6s linear;
+        }
+        
+        .animate-spin-reverse {
+          animation: spin-reverse 0.6s linear;
         }
       `}</style>
     </div>

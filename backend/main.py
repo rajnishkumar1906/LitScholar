@@ -7,22 +7,19 @@ from books.router import router as books_router
 from assistant.router import router as assistant_router
 from users.router import router as user_router
 
-# Optional: if you have startup/shutdown logic (e.g. Chroma client, DB pool, etc.)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print("🚀 BookBuddy API starting...")
+    print("BookBuddy API starting...")
     yield
-    # Shutdown: runs when server stops
-    print("🛑 BookBuddy API shutting down...")
-
+    print("BookBuddy API shutting down...")
 
 app = FastAPI(
     title="BookBuddy API",
     description="Backend API for BookBuddy - book recommendations & AI assistant",
     version="0.1.0",
-    lifespan=lifespan,  # optional but nice
-    docs_url="/docs",   # Swagger UI
-    redoc_url="/redoc", # ReDoc UI (alternative docs)
+    lifespan=lifespan,
+    docs_url="/docs",
+    redoc_url="/redoc",
     openapi_url="/openapi.json",
 )
 
@@ -31,18 +28,16 @@ app.add_middleware(
     secret_key='AKxS4ffc9FtsVfzBwsVfzBwKxS4ffc9fc9FtsVfzBwsVfzB'
 )
 
-# Enable CORS - VERY IMPORTANT for React frontend running on different port (5173)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:5173",
         "http://127.0.0.1:5173",
-        "http://localhost:3000",  # if you ever use create-react-app
-        "*"                       # ← temporary for dev; tighten in production
     ],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_credentials=True,  # Must be True for cookies
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", "Accept"],
+    expose_headers=["*"],
 )
 
 # Include all routers
@@ -50,7 +45,6 @@ app.include_router(auth_router, prefix="/auth", tags=["Auth"])
 app.include_router(user_router, prefix="/users", tags=["Users"])
 app.include_router(books_router, prefix="/books", tags=["Books"])
 app.include_router(assistant_router, prefix="/assistant", tags=["Assistant"])
-
 
 @app.get("/")
 async def root():
@@ -61,8 +55,6 @@ async def root():
         "version": app.version
     }
 
-
-# Optional: health check endpoint (useful for monitoring/load balancers)
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy", "uptime": "running"}
+    return {"status": "healthy"}

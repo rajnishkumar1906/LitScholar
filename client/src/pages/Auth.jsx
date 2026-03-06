@@ -66,7 +66,7 @@ export default function Auth() {
         if (formData.password !== formData.confirmPassword) {
           throw new Error('Passwords do not match');
         }
-        
+
         const result = await register(formData.email, formData.password);
         if (result.success) {
           setIsLogin(true);
@@ -279,17 +279,13 @@ export default function Auth() {
           </div>
 
           {/* Social login */}
-          <div className="grid grid-cols-2 gap-3">
-            <button 
+          <div className="grid grid-cols-1 gap-3">  {/* Changed from grid-cols-2 to grid-cols-1 */}
+            <button
               onClick={handleGoogleLogin}
               className="flex items-center justify-center gap-2 py-3 border border-gray-300 rounded-xl bg-white/80 backdrop-blur-sm hover:bg-gray-100 transition-all"
             >
               <FaGoogle className="w-5 h-5 text-gray-600" />
               <span className="text-sm font-medium text-gray-700">Google</span>
-            </button>
-            <button className="flex items-center justify-center gap-2 py-3 border border-gray-300 rounded-xl bg-white/80 backdrop-blur-sm hover:bg-gray-100 transition-all">
-              <FaGithub className="w-5 h-5 text-gray-600" />
-              <span className="text-sm font-medium text-gray-700">GitHub</span>
             </button>
           </div>
 

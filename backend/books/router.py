@@ -1,173 +1,86 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import List
-from books.schemas import Book
-from retrieval.supabase_fetch import fetch_books_by_ids
-from core.db import get_db
-from core.security import require_role
+from books.schemas import Book, RecommendedBook, RecommendedSectionsResponse
+from books.service import BookService
+from core.db import get_async_db
+from core.security import get_current_user_with_db
+import asyncpg
 
 router = APIRouter()
 
 
-# --------------------------------------------------
-# Get single book by ID
-# --------------------------------------------------
+async def get_book_service(
+    db: asyncpg.Connection = Depends(get_async_db),
+) -> BookService:
+    return BookService(db)
+
+@router.get("/ping")
+async def ping():
+    return {"message": "pong"}
+
+@router.get("/recommended", response_model=List[RecommendedBook])
+async def get_recommended_books(
+    page: int = Query(1, ge=1),
+    limit: int = Query(6, ge=1, le=50),
+    current_user: dict = Depends(get_current_user_with_db),
+    service: BookService = Depends(get_book_service),
+):
+    try:
+        books = await service.get_combined_recommendations(
+            user_id=current_user["id"],
+            page=page,
+            limit=limit,
+        )
+        return books
+    except Exception as e:
+        print(f"Error in recommendations: {str(e)}")
+        return []
+
+@router.get("/recommended/sections", response_model=RecommendedSectionsResponse)
+async def get_recommended_sections(
+    current_user: dict = Depends(get_current_user_with_db),
+    service: BookService = Depends(get_book_service),
+):
+    try:
+        data = await service.get_recommended_sections(
+            user_id=str(current_user["id"]),
+            for_you_limit=6,
+            popular_limit=12,
+            genres_limit=6,
+            books_per_genre=4,
+        )
+        return RecommendedSectionsResponse(**data)
+    except Exception as e:
+        print(f"Error in recommended sections: {e}")
+        return RecommendedSectionsResponse(for_you=[], popular=[], by_genre=[])
+
+@router.post("/track/{book_id}")
+async def track_book(
+    book_id: str,
+    current_user: dict = Depends(get_current_user_with_db),
+    service: BookService = Depends(get_book_service),
+):
+    try:
+        result = await service.track_book_view(current_user["id"], book_id)
+        return {"success": True, "message": "Book view tracked", "data": result}
+    except Exception as e:
+        # Tracking failures should not break the main user flow.
+        print(f"Error in track_book: {e}")
+        return {"success": False, "message": "Failed to track book view"}
+
 @router.get("/{book_id}", response_model=Book)
-def get_book(book_id: str):
-    books = fetch_books_by_ids([book_id])
-    if not books:
+async def get_book(
+    book_id: str,
+    service: BookService = Depends(get_book_service)
+):
+    book = await service.get_book_by_id(book_id)
+    if not book:
         raise HTTPException(status_code=404, detail="Book not found")
-    return books[0]
+    return book
 
-
-# --------------------------------------------------
-# Create book (ADMIN ONLY)
-# --------------------------------------------------
-@router.post("/", dependencies=[Depends(require_role("admin"))])
-def create_book(book: Book, db=Depends(get_db)):
-    with db.cursor() as cur:
-        cur.execute(
-            """
-            INSERT INTO books
-            (book_id, book_title, author, genres, book_details, num_pages, cover_image_url)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
-            """,
-            (
-                book.book_id,
-                book.title,
-                book.author,
-                book.genres,
-                book.description,
-                book.num_pages,
-                book.image_url,
-            ),
-        )
-        db.commit()
-
-    return {"status": "book created", "book_id": book.book_id}
-
-
-# --------------------------------------------------
-# Update book (ADMIN ONLY)
-# --------------------------------------------------
-@router.put("/{book_id}", dependencies=[Depends(require_role("admin"))])
-def update_book(book_id: str, book: Book, db=Depends(get_db)):
-    with db.cursor() as cur:
-        cur.execute(
-            """
-            UPDATE books
-            SET
-                book_title = %s,
-                author = %s,
-                genres = %s,
-                book_details = %s,
-                num_pages = %s,
-                cover_image_url = %s
-            WHERE book_id = %s
-            """,
-            (
-                book.title,
-                book.author,
-                book.genres,
-                book.description,
-                book.num_pages,
-                book.image_url,
-                book_id,
-            ),
-        )
-
-        if cur.rowcount == 0:
-            raise HTTPException(status_code=404, detail="Book not found")
-
-        db.commit()
-
-    return {"status": "book updated", "book_id": book_id}
-
-
-# --------------------------------------------------
-# List books with pagination
-# --------------------------------------------------
-@router.get("/", response_model=List[Book])
-def list_books(
-    page: int = Query(1, ge=1),
-    limit: int = Query(20, ge=1, le=100),
-    db=Depends(get_db),
-):
-    offset = (page - 1) * limit
-
-    with db.cursor() as cur:
-        cur.execute(
-            """
-            SELECT
-                book_id,
-                book_title,
-                author,
-                genres,
-                book_details,
-                num_pages,
-                cover_image_url
-            FROM books
-            ORDER BY book_id
-            LIMIT %s OFFSET %s
-            """,
-            (limit, offset),
-        )
-        rows = cur.fetchall()
-
-    return [
-        {
-            "book_id": r[0],
-            "title": r[1],
-            "author": r[2],
-            "genres": r[3],
-            "description": r[4],
-            "num_pages": r[5],
-            "image_url": r[6],
-        }
-        for r in rows
-    ]
-
-
-# --------------------------------------------------
-# Browse books by genre
-# --------------------------------------------------
-@router.get("/by-genre/{genre}", response_model=List[Book])
-def by_genre(
-    genre: str,
-    page: int = Query(1, ge=1),
-    limit: int = Query(20, ge=1, le=100),
-    db=Depends(get_db),
-):
-    offset = (page - 1) * limit
-
-    with db.cursor() as cur:
-        cur.execute(
-            """
-            SELECT
-                book_id,
-                book_title,
-                author,
-                genres,
-                book_details,
-                num_pages,
-                cover_image_url
-            FROM books
-            WHERE genres ILIKE %s
-            ORDER BY book_id
-            LIMIT %s OFFSET %s
-            """,
-            (f"%{genre}%", limit, offset),
-        )
-        rows = cur.fetchall()
-
-    return [
-        {
-            "book_id": r[0],
-            "title": r[1],
-            "author": r[2],
-            "genres": r[3],
-            "description": r[4],
-            "num_pages": r[5],
-            "image_url": r[6],
-        }
-        for r in rows
-    ]
+# Add this temporary endpoint to check
+@router.get("/debug/check-books")
+async def check_books(db: asyncpg.Connection = Depends(get_async_db)):
+    # Get first 10 books from database
+    rows = await db.fetch("SELECT book_id, book_title FROM books LIMIT 10")
+    return {"sample_books": [dict(r) for r in rows]}

@@ -1,18 +1,18 @@
 from fastapi import APIRouter, HTTPException
 from assistant.schemas import AssistantRequest, AssistantResponse
 from retrieval.retriever import search_books
-from retrieval.supabase_fetch import fetch_books_by_ids
+from retrieval.neon_fetch import fetch_books_by_ids
 from assistant.librarian import librarian_answer
 
 router = APIRouter()
 
 @router.post("/ask", response_model=AssistantResponse)
-def ask(payload: AssistantRequest):
+async def ask(payload: AssistantRequest):  # Make it async
     try:
         print(f"[/ask] Received question: '{payload.question}' | top_k={payload.top_k}")
 
         if payload.book_ids:
-            books = fetch_books_by_ids(payload.book_ids)
+            books = await fetch_books_by_ids(payload.book_ids)  # Add await
             print(f"[/ask] Using provided book_ids: {payload.book_ids}")
         else:
             results = search_books(payload.question, top_k=payload.top_k)
@@ -28,7 +28,10 @@ def ask(payload: AssistantRequest):
                 )
 
             book_ids = [r["book_id"] for r in results]
-            books = fetch_books_by_ids(book_ids)
+            print(f"[DEBUG] book_ids from search_books: {book_ids}")
+            print(f"[DEBUG] Types: {[type(bid) for bid in book_ids]}")
+            
+            books = await fetch_books_by_ids(book_ids)  # Add await
             print(f"[/ask] Fetched full book data for {len(books)} books")
 
         if not books:
@@ -56,9 +59,9 @@ def ask(payload: AssistantRequest):
             question=payload.question,
             answer=llm_result["answer"],
             citations=llm_result["citations"],
-            sources=books   # ← this will go to frontend
+            sources=books
         )
 
     except Exception as e:
         print(f"[ERROR in /ask] {str(e)}")
-        raise
+        raise HTTPException(status_code=500, detail=str(e))

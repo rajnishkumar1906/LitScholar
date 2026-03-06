@@ -12,6 +12,7 @@ supabase==2.28.0
 
 # Database driver
 psycopg[binary]
+asyncpg==0.29.0                        # Added for async PostgreSQL connection
 
 # Authentication & JWT
 python-jose[cryptography]==3.3.0
