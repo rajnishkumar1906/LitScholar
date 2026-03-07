@@ -1,5 +1,5 @@
 import os
-import psycopg # type: ignore
+import psycopg  # type: ignore
 import chromadb
 from dotenv import load_dotenv
 from chromadb.config import Settings
@@ -7,6 +7,7 @@ from chromadb.config import Settings
 load_dotenv()
 
 DB_URL_NEON = os.getenv("DB_URL_NEON")
+
 CLEAN_CSV_PATH = "data/books_clean.csv"
 CHROMA_DIR = "chroma_store"
 
@@ -16,7 +17,7 @@ def cleaned_csv_ready() -> bool:
     return os.path.exists(CLEAN_CSV_PATH) and os.path.getsize(CLEAN_CSV_PATH) > 0
 
 
-# ---------- SUPABASE CHECK ----------
+# ---------- NEON DB CHECK ----------
 def neondb_has_books() -> bool:
     if not DB_URL_NEON:
         return False
@@ -29,15 +30,49 @@ def neondb_has_books() -> bool:
     return count > 0
 
 
-# # ---------- CHROMA CHECK ----------
+# ---------- SUMMARY CHECK ----------
+def summaries_exist() -> bool:
+    """
+    Return True if summaries already exist in the books table.
+    Used to skip summarization step in the pipeline.
+    """
+
+    if not DB_URL_NEON:
+        return False
+
+    try:
+        with psycopg.connect(DB_URL_NEON) as conn:
+            with conn.cursor() as cur:
+
+                # count books that already have summaries
+                cur.execute(
+                    """
+                    SELECT COUNT(*)
+                    FROM books
+                    WHERE summary IS NOT NULL
+                    """
+                )
+
+                count = cur.fetchone()[0]
+
+                print(f"📝 Found {count} summaries in DB")
+
+                return count > 0
+
+    except Exception as e:
+        print(f"⚠️ Summary check error: {e}")
+        return False
+
+
+# ---------- CHROMA CHECK (OLD VERSION - COMMENTED) ----------
 # def chroma_has_embeddings(collection_name: str = "books") -> bool:
 #     if not os.path.exists(CHROMA_DIR):
 #         return False
-
+#
 #     client = chromadb.Client(
 #         Settings(persist_directory=CHROMA_DIR)
 #     )
-
+#
 #     try:
 #         collection = client.get_collection(collection_name)
 #         return collection.count() > 0
@@ -45,19 +80,24 @@ def neondb_has_books() -> bool:
 #         return False
 
 
-
-# ---------- CHROMA CHECK ----------
+# ---------- CHROMA CHECK (CURRENT VERSION) ----------
 def chroma_has_embeddings(collection_name: str = "books") -> bool:
+
     if not os.path.exists(CHROMA_DIR):
         return False
 
     try:
-        # Use the SAME method that created the embeddings
+        # Use SAME persistent directory used during embedding creation
         client = chromadb.PersistentClient(path=CHROMA_DIR)
+
         collection = client.get_collection(collection_name)
+
         count = collection.count()
+
         print(f"📊 Found {count} embeddings in Chroma")
+
         return count > 0
+
     except Exception as e:
         print(f"⚠️ Chroma check error: {e}")
         return False
