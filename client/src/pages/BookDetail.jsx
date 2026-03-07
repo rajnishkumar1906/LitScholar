@@ -66,10 +66,7 @@ export default function BookDetail() {
     setFollowUpAnswer('');
     setCitations({});
 
-    const scopedQuestion = book.title && book.author
-      ? `${book.title} by ${book.author}. ${book.description ? book.description.slice(0, 200) + '. ' : ''}Question: ${followUpQuestion}`
-      : followUpQuestion;
-    const result = await askFollowUp(scopedQuestion, [book]);
+    const result = await askFollowUp(followUpQuestion, [book]);
     if (result.success) {
       setFollowUpAnswer(result.answer);
       setCitations(result.citations || {});

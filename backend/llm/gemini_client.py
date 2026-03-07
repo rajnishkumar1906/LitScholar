@@ -16,7 +16,7 @@ def _get_client():
     return _client
 
 # GEMINI_MODEL = "gemini-2.0-flash"  # or "gemini-3-flash-preview"
-GEMINI_MODEL = "gemini-2.5-flash-lite"  # or "gemini-3-flash-preview"
+GEMINI_MODEL = "gemini-2.0-flash"
 
 def clean_llm_output(text):
     """
@@ -68,5 +68,11 @@ def ask_gemini(prompt: str) -> str:
         return cleaned_response
         
     except Exception as e:
-        print(f"[Gemini Error] {str(e)}")
-        return "I'm having trouble connecting right now. Please try again."
+        error_msg = str(e)
+        print(f"[Gemini Error] {error_msg}")
+        
+        # Specific check for rate limits/quota
+        if "429" in error_msg or "quota" in error_msg.lower() or "limit" in error_msg.lower():
+            return "ERROR: Gemini rate limit exceeded. Stopping."
+            
+        return f"ERROR: Gemini trouble - {error_msg}"

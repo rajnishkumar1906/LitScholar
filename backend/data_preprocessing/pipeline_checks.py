@@ -33,8 +33,7 @@ def neondb_has_books() -> bool:
 # ---------- SUMMARY CHECK ----------
 def summaries_exist() -> bool:
     """
-    Return True if summaries already exist in the books table.
-    Used to skip summarization step in the pipeline.
+    Return True only if ALL books already have summaries.
     """
 
     if not DB_URL_NEON:
@@ -44,20 +43,20 @@ def summaries_exist() -> bool:
         with psycopg.connect(DB_URL_NEON) as conn:
             with conn.cursor() as cur:
 
-                # count books that already have summaries
                 cur.execute(
                     """
                     SELECT COUNT(*)
                     FROM books
-                    WHERE summary IS NOT NULL
+                    WHERE summary IS NULL
                     """
                 )
 
-                count = cur.fetchone()[0]
+                missing = cur.fetchone()[0]
 
-                print(f"📝 Found {count} summaries in DB")
+                print(f"📝 Books missing summaries: {missing}")
 
-                return count > 0
+                # If no missing summaries, we skip
+                return missing == 0
 
     except Exception as e:
         print(f"⚠️ Summary check error: {e}")

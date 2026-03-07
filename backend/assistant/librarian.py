@@ -45,34 +45,50 @@ def librarian_answer(user_question: str, books: List[Dict]) -> Dict:
     context_lines = []
     citation_map = {}
     
+    # Use more context if we only have 1 or 2 books (likely a direct follow-up)
+    max_detail_length = 1500 if len(books) <= 2 else 500
+
     for i, b in enumerate(books, 1):
-        context_lines.append(f"[{i}] {b['title']} | {b['author']} | {b.get('genres', '')}")
+        summary_text = b.get('summary') or b.get('description') or ''
+        # Limit summary/description length for context window efficiency
+        if len(summary_text) > max_detail_length:
+            summary_text = summary_text[:max_detail_length] + "..."
+        
+        context_lines.append(f"[{i}] {b['title']} | {b['author']} | Genres: {b.get('genres', '')} | Details: {summary_text}")
         citation_map[f"[{i}]"] = b["book_id"]
     
     context = "\n".join(context_lines)
     
-    prompt = f"""Answer using ONLY the books below. Cite each claim with [1],[2], etc. If you cannot answer from these books, say exactly:
-"I don't have enough information from the available books to answer this question."
+    # Check if this is a follow-up for a specific book
+    is_single_book = len(books) == 1
+    
+    if is_single_book:
+        prompt = f"""You are the LitScholar AI Librarian. You are helping a user with a specific book.
+Answer the user's question about the book provided below. 
+If the answer isn't in the text, use your internal knowledge about this book and author, but prioritize the provided details.
+Be conversational, helpful, and insightful.
+
+BOOK CONTEXT:
+{context}
+
+USER QUESTION: {user_question}
+LIBRARIAN ANSWER:"""
+    else:
+        prompt = f"""You are the LitScholar AI Librarian. Answer the user's question using the books provided below as your primary source. 
+Cite each claim using [1], [2], etc. based on the book index.
+If you cannot answer from these books, you can use your general knowledge to provide a helpful response, but clearly state if you are going beyond the provided context.
 
 BOOKS:
 {context}
 
-Q: {user_question}
-A:"""
+USER QUESTION: {user_question}
+LIBRARIAN ANSWER:"""
 
     raw_answer = ask_gemini(prompt).strip()
     
-    # 👇 ADD CLEANING HERE - right after getting response
+    # 👇 CLEANING - right after getting response
     cleaned_answer = clean_llm_output(raw_answer)
-    print(f"Raw answer: {raw_answer}")
-    print(f"Cleaned answer: {cleaned_answer}")
-    
-    # Hard hallucination check
-    if "enough information" in cleaned_answer.lower():
-        return {
-            "answer": "I don't have enough information from the available books to answer this question.",
-            "citations": {}
-        }
+    print(f"Librarian answer generated for: {user_question}")
     
     # Validate citations
     used_citations = {
@@ -82,6 +98,6 @@ A:"""
     }
     
     return {
-        "answer": cleaned_answer,  # 👈 Return cleaned version
+        "answer": cleaned_answer,
         "citations": used_citations
     }

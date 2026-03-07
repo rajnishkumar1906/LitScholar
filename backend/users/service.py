@@ -142,54 +142,55 @@ class UserService:
     async def get_user_activity(self, user_id: int, limit: int = 10) -> List[Dict]:
         """Get user's recent activity"""
         query = """
-            (SELECT 
-                'book_view' as activity_type,
-                book_id,
-                NULL::int as rating,
-                NULL::text as list_type,
-                last_viewed as created_at,
-                jsonb_build_object('click_count', click_count) as metadata
-            FROM user_book_views
-            WHERE user_id = $1)
-            
-            UNION ALL
-            
-            (SELECT 
-                CASE 
-                    WHEN list_type = 'finished' THEN 'finished_book'
-                    WHEN list_type = 'reading' THEN 'started_book'
-                    ELSE 'added_to_' || list_type
-                END as activity_type,
+            SELECT 
+                activity_type,
                 book_id,
                 rating,
                 list_type,
-                COALESCE(finish_date, start_date, created_at) as created_at,
-                jsonb_build_object(
-                    'list_type', list_type,
-                    'rating', rating
-                ) as metadata
-            FROM user_books
-            WHERE user_id = $1)
-            
+                created_at,
+                metadata,
+                b.book_title
+            FROM (
+                (SELECT 
+                    'book_view' as activity_type,
+                    book_id::bigint as book_id,
+                    NULL::int as rating,
+                    NULL::text as list_type,
+                    last_viewed as created_at,
+                    jsonb_build_object('click_count', click_count) as metadata
+                FROM user_book_views
+                WHERE user_id = $1)
+                
+                UNION ALL
+                
+                (SELECT 
+                    CASE 
+                        WHEN list_type = 'finished' THEN 'finished_book'
+                        WHEN list_type = 'reading' THEN 'started_book'
+                        ELSE 'added_to_' || COALESCE(list_type, 'list')
+                    END as activity_type,
+                    book_id::bigint as book_id,
+                    rating::int as rating,
+                    list_type::text as list_type,
+                    COALESCE(finish_date, start_date, created_at) as created_at,
+                    jsonb_build_object(
+                        'list_type', list_type,
+                        'rating', rating
+                    ) as metadata
+                FROM user_books
+                WHERE user_id = $1)
+            ) AS combined_activity
+            LEFT JOIN books b ON b.book_id = combined_activity.book_id
             ORDER BY created_at DESC
             LIMIT $2
         """
         
-        rows = await self.db.fetch(query, user_id, limit)
-        
-        # Enhance with book titles
-        result = []
-        for row in rows:
-            book = await self.db.fetchrow(
-                "SELECT book_title FROM books WHERE book_id = $1",
-                row['book_id']
-            )
-            result.append({
-                **dict(row),
-                'book_title': book['book_title'] if book else None
-            })
-        
-        return result
+        try:
+            rows = await self.db.fetch(query, user_id, limit)
+            return [dict(row) for row in rows]
+        except Exception as e:
+            print(f"Error in get_user_activity: {e}")
+            return []
     
     async def mark_book_as_finished(self, user_id: int, book_id: str) -> Dict[str, Any]:
         """Mark a book as finished and update reading progress"""

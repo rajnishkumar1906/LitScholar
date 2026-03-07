@@ -1,19 +1,26 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+import asyncio
+import warnings
 from contextlib import asynccontextmanager
+
+# Silenciar advertencias de FutureWarning de transformers
+warnings.filterwarnings("ignore", category=FutureWarning, module="transformers.tokenization_utils_base")
 from starlette.middleware.sessions import SessionMiddleware
 from auth.router import router as auth_router
-from books.router import router as books_router
-from assistant.router import router as assistant_router
 from users.router import router as user_router
-from data_preprocessing.run_pipeline import run_pipeline
+from books.router import router as book_router
+from assistant.router import router as assistant_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("LitScholar API starting...")
-    run_pipeline()
-    yield
-    print("LitScholar API shutting down...")
+    # Background pipeline is now managed manually or on-demand
+    # No longer running the full summarization pipeline on startup
+    try:
+        yield
+    finally:
+        print("LitScholar API shutting down...")
 
 
 app = FastAPI(
@@ -47,7 +54,7 @@ app.add_middleware(
 # Include all routers
 app.include_router(auth_router, prefix="/auth", tags=["Auth"])
 app.include_router(user_router, prefix="/users", tags=["Users"])
-app.include_router(books_router, prefix="/books", tags=["Books"])
+app.include_router(book_router, prefix="/books", tags=["Books"])
 app.include_router(assistant_router, prefix="/assistant", tags=["Assistant"])
 
 @app.get("/")

@@ -211,6 +211,19 @@ export const AppProvider = ({ children }) => {
     }
   };
 
+  const getBookSummary = async (bookId) => {
+    try {
+      const response = await api.get(`/books/${bookId}/summary`);
+      return { success: true, summary: response.data.summary };
+    } catch (error) {
+      console.error('Error fetching book summary:', error);
+      return {
+        success: false,
+        error: error.response?.data?.detail || 'Failed to fetch summary',
+      };
+    }
+  };
+
   const askFollowUp = async (question, books = []) => {
     try {
       const bookIds = books
@@ -407,6 +420,7 @@ export const AppProvider = ({ children }) => {
     isAuthenticated: () => !!user,
     searchBooks,
     getBookById,
+    getBookSummary,
     askFollowUp,
     setSearchResults,
     showLogoutConfirm,

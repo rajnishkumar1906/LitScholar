@@ -78,6 +78,16 @@ async def get_book(
         raise HTTPException(status_code=404, detail="Book not found")
     return book
 
+@router.get("/{book_id}/summary")
+async def get_book_summary(
+    book_id: str,
+    service: BookService = Depends(get_book_service)
+):
+    summary = await service.get_book_summary(book_id)
+    if not summary:
+        raise HTTPException(status_code=404, detail="Summary not available")
+    return {"summary": summary}
+
 # Add this temporary endpoint to check
 @router.get("/debug/check-books")
 async def check_books(db: asyncpg.Connection = Depends(get_async_db)):

@@ -1,6 +1,6 @@
 import { FaStar, FaBookOpen } from 'react-icons/fa';
 
-export default function BookCard({ title, author, reason, category, rating, index }) {
+export default function BookCard({ title, author, reason, summary, category, rating, index }) {
   return (
     <div 
       className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg hover:shadow-2xl overflow-hidden group hover:-translate-y-1 transition-all duration-300 border border-gray-200 h-full flex flex-col"
@@ -25,7 +25,7 @@ export default function BookCard({ title, author, reason, category, rating, inde
         </div>
 
         <p className="text-gray-600 mb-6 text-sm leading-relaxed line-clamp-3">
-          "{reason || 'No description available'}"
+          "{reason || summary || 'No description available'}"
         </p>
 
         <div className="flex items-center justify-between mt-auto">

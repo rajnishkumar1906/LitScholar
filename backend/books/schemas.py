@@ -7,6 +7,7 @@ class Book(BaseModel):
     author: str
     genres: Optional[str] = None
     description: Optional[str] = None
+    summary: Optional[str] = None
     num_pages: Optional[int] = None
     image_url: Optional[str] = None
 
@@ -15,6 +16,7 @@ class RecommendedBook(BaseModel):
     title: str
     author: str
     genres: Optional[str] = None
+    summary: Optional[str] = None
     num_pages: Optional[int] = None
     image_url: Optional[str] = None
 

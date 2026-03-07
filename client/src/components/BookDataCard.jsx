@@ -1,9 +1,51 @@
 // components/BookDataCard.jsx
-import { FaBook, FaStar, FaUser, FaLayerGroup, FaFileAlt, FaCalendar, FaBuilding, FaBarcode, FaRobot, FaBookOpen, FaChevronDown, FaChevronUp } from 'react-icons/fa';
-import { useState } from 'react';
+import { FaBook, FaStar, FaUser, FaLayerGroup, FaFileAlt, FaCalendar, FaBuilding, FaBarcode, FaRobot, FaBookOpen, FaChevronDown, FaChevronUp, FaSpinner } from 'react-icons/fa';
+import { useState, useEffect } from 'react';
+import { useApp } from '../context/AppContext';
 
 const BookDataCard = ({ book, showFollowUp, setShowFollowUp }) => {
+  const { getBookSummary } = useApp();
   const [showSummary, setShowSummary] = useState(false);
+  const [summary, setSummary] = useState(book.summary || '');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [error, setError] = useState('');
+
+  // Update summary if book prop changes (e.g. initial load)
+  useEffect(() => {
+    if (book.summary) {
+      setSummary(book.summary);
+    }
+  }, [book.summary]);
+
+  const handleSummaryClick = async () => {
+    // Toggle off if already showing
+    if (showSummary) {
+      setShowSummary(false);
+      return;
+    }
+
+    // If we already have a summary, just show it
+    if (summary) {
+      setShowSummary(true);
+      return;
+    }
+
+    // Otherwise, generate it
+    setIsGenerating(true);
+    setError('');
+    
+    const result = await getBookSummary(book.id || book.book_id);
+    
+    if (result.success) {
+      setSummary(result.summary);
+      setShowSummary(true);
+    } else {
+      setError(result.error || 'Failed to generate summary');
+      setShowSummary(true); // Show panel anyway to display error
+    }
+    
+    setIsGenerating(false);
+  };
 
   // Parse genres - handle both string and array formats and clean them
   const parseGenres = (genres) => {
@@ -165,12 +207,17 @@ const BookDataCard = ({ book, showFollowUp, setShowFollowUp }) => {
               {/* Action Buttons */}
               <div className="flex flex-wrap gap-4">
                 <button
-                  onClick={() => setShowSummary(!showSummary)}
-                  className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-amber-600 to-amber-700 text-white font-medium rounded-xl hover:shadow-lg transition-all duration-300 transform hover:scale-105"
+                  onClick={handleSummaryClick}
+                  disabled={isGenerating}
+                  className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-amber-600 to-amber-700 text-white font-medium rounded-xl hover:shadow-lg transition-all duration-300 transform hover:scale-105 disabled:opacity-70 disabled:cursor-not-allowed"
                 >
-                  <FaBookOpen className="w-5 h-5" />
-                  {showSummary ? 'Hide Summary' : 'View Summary'}
-                  {showSummary ? <FaChevronUp className="w-4 h-4" /> : <FaChevronDown className="w-4 h-4" />}
+                  {isGenerating ? (
+                    <FaSpinner className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <FaBookOpen className="w-5 h-5" />
+                  )}
+                  {isGenerating ? 'Generating...' : (showSummary ? 'Hide Summary' : 'View Summary')}
+                  {!isGenerating && (showSummary ? <FaChevronUp className="w-4 h-4" /> : <FaChevronDown className="w-4 h-4" />)}
                 </button>
                 <button
                   onClick={() => setShowFollowUp(!showFollowUp)}
@@ -197,7 +244,11 @@ const BookDataCard = ({ book, showFollowUp, setShowFollowUp }) => {
                   <h3 className="text-lg font-semibold text-amber-900">Book Summary</h3>
                 </div>
                 <p className="text-gray-700 leading-relaxed">
-                  {book.summary || book.description || "No summary available for this book."}
+                  {error ? (
+                    <span className="text-red-600">{error}</span>
+                  ) : (
+                    summary || book.description || "No summary available for this book."
+                  )}
                 </p>
                 <button
                   onClick={() => setShowSummary(false)}

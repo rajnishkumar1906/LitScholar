@@ -1,10 +1,12 @@
 import asyncpg
 import json
 import random
+import asyncio
 from typing import List, Optional, Dict, Any
 from books.schemas import Book
 from retrieval.neon_fetch import fetch_books_by_ids
 from retrieval.retriever import search_books
+from llm.gemini_client import ask_gemini
 
 class BookService:
     def __init__(self, db: asyncpg.Connection):
@@ -18,6 +20,53 @@ class BookService:
             return books[0] if books else None
         except Exception as e:
             print(f"Error in get_book_by_id: {e}")
+            return None
+
+    async def get_book_summary(self, book_id: str) -> Optional[str]:
+        """Generate and save summary for a book if it doesn't exist"""
+        try:
+            # 1. Check if summary already exists in DB
+            row = await self.db.fetchrow(
+                "SELECT summary, book_title, author, genres, book_details FROM books WHERE book_id = $1",
+                int(book_id)
+            )
+            
+            if not row:
+                return None
+                
+            if row["summary"]:
+                return row["summary"]
+                
+            # 2. Generate on-demand if missing
+            print(f"✨ Generating on-demand summary for: {row['book_title']}")
+            prompt = f"""
+Write a concise 120–150 word summary of this book.
+Include the theme, major ideas, and overall premise.
+
+Title: {row['book_title']}
+Author: {row['author']}
+Genre: {row.get('genres', '')}
+
+Description:
+{row.get('book_details', '')}
+"""
+            # Run the blocking ask_gemini in a thread to keep things async
+            loop = asyncio.get_event_loop()
+            summary = await loop.run_in_executor(None, ask_gemini, prompt)
+            
+            if summary and "ERROR:" not in summary:
+                # Save to database
+                await self.db.execute(
+                    "UPDATE books SET summary = $1 WHERE book_id = $2",
+                    summary,
+                    int(book_id)
+                )
+                print(f"✅ On-demand summary saved for: {row['book_title']}")
+                return summary
+            
+            return None
+        except Exception as e:
+            print(f"Error in get_book_summary: {e}")
             return None
     
     async def track_book_view(self, user_id: str, book_id: str) -> dict:
@@ -269,6 +318,11 @@ class BookService:
                 user_id=str(uid), page=1, limit=for_you_limit
             )
 
+        # 1. Collect all IDs for popular and genres
+        all_ids_to_fetch = []
+        popular_ids = []
+        genre_ids_map = {}
+
         # Popular section
         try:
             popular_rows = await self.db.fetch(
@@ -283,7 +337,6 @@ class BookService:
             )
             if popular_rows:
                 popular_ids = [str(row["book_id"]) for row in popular_rows]
-                popular = await fetch_books_by_ids(popular_ids)
             else:
                 random_rows = await self.db.fetch(
                     "SELECT book_id FROM books ORDER BY RANDOM() LIMIT $1",
@@ -291,18 +344,19 @@ class BookService:
                 )
                 if random_rows:
                     popular_ids = [str(row["book_id"]) for row in random_rows]
-                    popular = await fetch_books_by_ids(popular_ids)
         except Exception as e:
-            print(f"Error fetching popular: {e}")
+            print(f"Error fetching popular IDs: {e}")
             try:
                 random_rows = await self.db.fetch(
                     "SELECT book_id FROM books ORDER BY RANDOM() LIMIT $1",
                     popular_limit,
                 )
                 if random_rows:
-                    popular = await fetch_books_by_ids([str(r["book_id"]) for r in random_rows])
+                    popular_ids = [str(r["book_id"]) for r in random_rows]
             except Exception as e2:
-                print(f"Fallback popular failed: {e2}")
+                print(f"Fallback popular IDs failed: {e2}")
+
+        all_ids_to_fetch.extend(popular_ids)
 
         # Genre sections
         try:
@@ -313,7 +367,7 @@ class BookService:
                 LIMIT 2000
                 """
             )
-            genre_to_ids: Dict[str, List[str]] = {}
+            genre_to_all_ids: Dict[str, List[str]] = {}
             for r in rows:
                 gs = (r["genres"] or "").strip()
                 if not gs:
@@ -322,22 +376,31 @@ class BookService:
                     g = g.strip()
                     if not g:
                         continue
-                    if g not in genre_to_ids:
-                        genre_to_ids[g] = []
-                    genre_to_ids[g].append(str(r["book_id"]))
+                    if g not in genre_to_all_ids:
+                        genre_to_all_ids[g] = []
+                    genre_to_all_ids[g].append(str(r["book_id"]))
 
-            genre_names = list(genre_to_ids.keys())[:genres_limit]
+            genre_names = list(genre_to_all_ids.keys())[:genres_limit]
             for genre in genre_names:
-                ids = genre_to_ids[genre]
-                if len(ids) <= books_per_genre:
-                    chosen = ids
-                else:
-                    chosen = random.sample(ids, books_per_genre)
-                books_list = await fetch_books_by_ids(chosen)
-                if books_list:
-                    by_genre.append({"genre": genre, "books": books_list})
+                ids = genre_to_all_ids[genre]
+                chosen = ids if len(ids) <= books_per_genre else random.sample(ids, books_per_genre)
+                genre_ids_map[genre] = chosen
+                all_ids_to_fetch.extend(chosen)
         except Exception as e:
-            print(f"Error fetching by_genre: {e}")
+            print(f"Error gathering genre IDs: {e}")
+
+        # 2. Fetch all books in ONE single call
+        unique_ids = list(set(all_ids_to_fetch))
+        all_fetched_books = await fetch_books_by_ids(unique_ids)
+        book_map = {str(b["book_id"]): b for b in all_fetched_books}
+
+        # 3. Reconstruct popular and by_genre sections from book_map
+        popular = [book_map[bid] for bid in popular_ids if bid in book_map]
+        
+        for genre, ids in genre_ids_map.items():
+            books_list = [book_map[bid] for bid in ids if bid in book_map]
+            if books_list:
+                by_genre.append({"genre": genre, "books": books_list})
 
         return {
             "for_you": for_you,
