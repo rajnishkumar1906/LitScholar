@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 DB_URL_NEON = os.getenv("DB_URL_NEON")
-CLEAN_CSV = "backend/data/books_clean.csv"
+CLEAN_CSV = "data/books_clean.csv"
 BATCH_SIZE = 1000
 
 

@@ -6,22 +6,26 @@ from auth.router import router as auth_router
 from books.router import router as books_router
 from assistant.router import router as assistant_router
 from users.router import router as user_router
+from data_preprocessing.run_pipeline import run_pipeline
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print("BookBuddy API starting...")
+    print("LitScholar API starting...")
+    run_pipeline()
     yield
-    print("BookBuddy API shutting down...")
+    print("LitScholar API shutting down...")
+
 
 app = FastAPI(
-    title="BookBuddy API",
-    description="Backend API for BookBuddy - book recommendations & AI assistant",
+    title="LitScholar API",
+    description="Backend API for LitScholar - book recommendations & AI assistant",
     version="0.1.0",
     lifespan=lifespan,
     docs_url="/docs",
     redoc_url="/redoc",
     openapi_url="/openapi.json",
 )
+    
 
 app.add_middleware(
     SessionMiddleware,
@@ -50,11 +54,11 @@ app.include_router(assistant_router, prefix="/assistant", tags=["Assistant"])
 async def root():
     return {
         "status": "online",
-        "message": "Welcome to BookBuddy API",
+        "message": "Welcome to LitScholar API",
         "docs": "/docs",
         "version": app.version
     }
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy"}
+    return {"status": "Healthy LitScholar"}

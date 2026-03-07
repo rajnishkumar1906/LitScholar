@@ -1,7 +1,7 @@
 import sys
 import traceback
 
-from pipeline_checks import (
+from .pipeline_checks import (
     cleaned_csv_ready,
     neondb_has_books,
     chroma_has_embeddings,
@@ -15,14 +15,14 @@ def run_step(step_name, step_fn):
     except Exception:
         print(f"❌ Failed: {step_name}")
         traceback.print_exc()
-        sys.exit(1)
+        raise
 
 
-def main():
+def run_pipeline():
     # Lazy imports (important: avoids side effects)
-    from clean_books_csv import main as clean_csv
-    from insert_cleaned_books import main as insert_neondb
-    from build_chroma_embeddings import main as build_embeddings
+    from .clean_books_csv import main as clean_csv
+    from .insert_cleaned_books import main as insert_neondb
+    from .build_chroma_embeddings import main as build_embeddings
 
     print("\n🧠 LitScholar — Data Preprocessing Pipeline")
 
@@ -48,4 +48,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    run_pipeline()

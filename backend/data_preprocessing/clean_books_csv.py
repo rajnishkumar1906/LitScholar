@@ -1,8 +1,8 @@
 import csv
 import os
 
-INPUT_CSV = "backend/data/book_raw.csv"
-OUTPUT_CSV = "backend/data/books_clean.csv"
+INPUT_CSV = "data/book_raw.csv"
+OUTPUT_CSV = "data/books_clean.csv"
 
 OUTPUT_COLUMNS = [
     "book_id",

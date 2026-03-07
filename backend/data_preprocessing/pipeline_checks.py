@@ -7,8 +7,8 @@ from chromadb.config import Settings
 load_dotenv()
 
 DB_URL_NEON = os.getenv("DB_URL_NEON")
-CLEAN_CSV_PATH = "backend/data/books_clean.csv"
-CHROMA_DIR = "backend/chroma_store"
+CLEAN_CSV_PATH = "data/books_clean.csv"
+CHROMA_DIR = "chroma_store"
 
 
 # ---------- CSV CHECK ----------

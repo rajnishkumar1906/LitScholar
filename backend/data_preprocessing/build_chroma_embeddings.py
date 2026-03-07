@@ -1,7 +1,6 @@
 import os
 import csv
 import math
-import time
 import torch
 import psycopg
 import chromadb
@@ -15,13 +14,13 @@ WARMUP_BATCH_SIZE = 8
 MAIN_BATCH_SIZE = 128
 MAX_LENGTH = 256
 
-CSV_PATH = "backend/data/books_clean.csv"
+CSV_PATH = "data/books_clean.csv"
 
 load_dotenv()
 DB_URL_NEON = os.getenv("DB_URL_NEON")
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-CHROMA_DIR = "backend/chroma_store"
+CHROMA_DIR = "chroma_store"
 
 def debug(msg: str):
     if DEBUG:
