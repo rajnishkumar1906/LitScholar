@@ -37,8 +37,16 @@ const BookDataCard = ({ book, showFollowUp, setShowFollowUp }) => {
     const result = await getBookSummary(book.id || book.book_id);
     
     if (result.success) {
-      setSummary(result.summary);
+      const fetchedSummary = result.summary;
+      setSummary(fetchedSummary);
       setShowSummary(true);
+      
+      // If it's an error message, don't keep it as the permanent summary
+      // so the user can try again later
+      if (fetchedSummary.includes("Summary not available") || fetchedSummary.includes("technical error")) {
+        // We'll keep it in the current session state but won't consider it "done"
+        // (Optional: you could clear it after a while)
+      }
     } else {
       setError(result.error || 'Failed to generate summary');
       setShowSummary(true); // Show panel anyway to display error
@@ -245,9 +253,15 @@ const BookDataCard = ({ book, showFollowUp, setShowFollowUp }) => {
                 </div>
                 <p className="text-gray-700 leading-relaxed">
                   {error ? (
-                    <span className="text-red-600">{error}</span>
+                    <span className="text-red-600 font-medium">{error}</span>
                   ) : (
-                    summary || book.description || "No summary available for this book."
+                    (summary?.includes("Summary not available") || summary?.startsWith("ERROR:")) ? (
+                      <span className="text-amber-800 italic bg-amber-100/50 px-3 py-2 rounded-lg block border border-amber-200">
+                        {summary}
+                      </span>
+                    ) : (
+                      summary || book.description || "No summary available for this book."
+                    )
                   )}
                 </p>
                 <button

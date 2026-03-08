@@ -194,27 +194,63 @@ class UserService:
     
     async def mark_book_as_finished(self, user_id: int, book_id: str) -> Dict[str, Any]:
         """Mark a book as finished and update reading progress"""
+        # Ensure book_id is handled consistently
+        str_bid = str(book_id)
+        
         # Check if book exists
         book_exists = await self.db.fetchval(
             "SELECT EXISTS(SELECT 1 FROM books WHERE book_id = $1)",
-            book_id
+            str_bid
         )
+        
+        # Fallback for book existence check
         if not book_exists:
-            raise ValueError("Book not found")
+            try:
+                int_bid = int(book_id)
+                book_exists = await self.db.fetchval(
+                    "SELECT EXISTS(SELECT 1 FROM books WHERE book_id = $1)",
+                    int_bid
+                )
+                if book_exists:
+                    str_bid = int_bid # Use integer for the rest of the queries if that worked
+            except Exception:
+                pass
+
+        if not book_exists:
+            raise ValueError(f"Book not found with ID: {book_id}")
         
         # Add to user_books as finished
-        await self.db.execute("""
-            INSERT INTO user_books (user_id, book_id, list_type, finish_date)
-            VALUES ($1, $2, 'finished', NOW())
-            ON CONFLICT (user_id, book_id, list_type) 
-            DO UPDATE SET finish_date = NOW(), updated_at = NOW()
-        """, user_id, book_id)
+        try:
+            await self.db.execute("""
+                INSERT INTO user_books (user_id, book_id, list_type, finish_date)
+                VALUES ($1, $2, 'finished', NOW())
+                ON CONFLICT (user_id, book_id, list_type) 
+                DO UPDATE SET finish_date = NOW(), updated_at = NOW()
+            """, user_id, str_bid)
+        except Exception:
+            # Fallback to int if string failed
+            await self.db.execute("""
+                INSERT INTO user_books (user_id, book_id, list_type, finish_date)
+                VALUES ($1, $2, 'finished', NOW())
+                ON CONFLICT (user_id, book_id, list_type) 
+                DO UPDATE SET finish_date = NOW(), updated_at = NOW()
+            """, user_id, int(book_id))
         
         # Get book pages
-        pages = await self.db.fetchval(
-            "SELECT num_pages FROM books WHERE book_id = $1",
-            book_id
-        ) or 0
+        pages = 0
+        try:
+            pages = await self.db.fetchval(
+                "SELECT num_pages FROM books WHERE book_id = $1",
+                str_bid
+            ) or 0
+        except Exception:
+            try:
+                pages = await self.db.fetchval(
+                    "SELECT num_pages FROM books WHERE book_id = $1",
+                    int(book_id)
+                ) or 0
+            except Exception:
+                pass
         
         # Update or create reading profile
         profile_exists = await self.db.fetchval(
@@ -266,12 +302,25 @@ class UserService:
             """, user_id, pages)
         
         # Add activity
-        await self.db.execute("""
-            INSERT INTO user_activity (user_id, activity_type, book_id, metadata, created_at)
-            VALUES ($1, $2, $3, $4, NOW())
-        """, user_id, 'finished_book', book_id, json.dumps({
-            'action': 'finished',
-            'timestamp': str(datetime.now())
-        }))
+        try:
+            await self.db.execute("""
+                INSERT INTO user_activity (user_id, activity_type, book_id, metadata, created_at)
+                VALUES ($1, $2, $3, $4, NOW())
+            """, user_id, 'finished_book', str_bid, json.dumps({
+                'action': 'finished',
+                'timestamp': str(datetime.now())
+            }))
+        except Exception:
+            # Fallback to int for activity if string failed
+            try:
+                await self.db.execute("""
+                    INSERT INTO user_activity (user_id, activity_type, book_id, metadata, created_at)
+                    VALUES ($1, $2, $3, $4, NOW())
+                """, user_id, 'finished_book', int(book_id), json.dumps({
+                    'action': 'finished',
+                    'timestamp': str(datetime.now())
+                }))
+            except Exception as e:
+                print(f"⚠️ Failed to log activity for finished book: {e}")
         
         return {"success": True, "message": "Book marked as finished!"}

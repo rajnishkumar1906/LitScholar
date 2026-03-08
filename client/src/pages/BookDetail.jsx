@@ -16,7 +16,7 @@ export default function BookDetail() {
   const { bookId } = useParams();  
   const location = useLocation();
   const navigate = useNavigate();
-  const { getBookById, askFollowUp, finishBook, loadProfile } = useApp();
+  const { getBookById, askFollowUp, finishBook, loadProfile, fetchUserBooks } = useApp();
 
   const [book, setBook] = useState(location.state?.book || null);
   const [loading, setLoading] = useState(!location.state?.book);
@@ -36,8 +36,8 @@ export default function BookDetail() {
       const result = await getBookById(bookId);
       if (result.success) {
         setBook(result.book);
-        // Check if already finished (you'd need an endpoint for this)
-        checkIfFinished(bookId);
+        // Check if already finished
+        await checkIfFinished(bookId);
       } else if (!book) {
         navigate('/dashboard');
       }
@@ -48,11 +48,15 @@ export default function BookDetail() {
   }, [bookId, getBookById, navigate]);
 
   // Add function to check if book is already finished
-  const checkIfFinished = async (bookId) => {
+  const checkIfFinished = async (id) => {
     try {
-      // You'd need an endpoint to check this
-      // For now, we'll just set to false
-      setIsFinished(false);
+      const result = await fetchUserBooks('finished', 50);
+      if (result.success) {
+        const isBookFinished = result.books.some(b => 
+          String(b.book_id) === String(id) || String(b.id) === String(id)
+        );
+        setIsFinished(isBookFinished);
+      }
     } catch (error) {
       console.error('Error checking finished status:', error);
     }
@@ -231,7 +235,13 @@ export default function BookDetail() {
                     <FaRobot className="w-4 h-4 text-white" />
                   </div>
                   <div className="flex-1">
-                    <p className="text-sm text-gray-800 leading-relaxed">{followUpAnswer}</p>
+                    {followUpAnswer.startsWith("ERROR:") ? (
+                      <p className="text-sm text-red-600 font-medium italic bg-red-50 p-3 rounded-lg border border-red-100">
+                        {followUpAnswer}
+                      </p>
+                    ) : (
+                      <p className="text-sm text-gray-800 leading-relaxed">{followUpAnswer}</p>
+                    )}
 
                     {/* Citations */}
                     {Object.keys(citations).length > 0 && (

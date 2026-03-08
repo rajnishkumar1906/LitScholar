@@ -27,7 +27,7 @@ async def get_recommended_books(
 ):
     try:
         books = await service.get_combined_recommendations(
-            user_id=current_user["id"],
+            user_id=str(current_user["id"]),
             page=page,
             limit=limit,
         )
@@ -49,7 +49,7 @@ async def get_recommended_sections(
             genres_limit=6,
             books_per_genre=4,
         )
-        return RecommendedSectionsResponse(**data)
+        return data
     except Exception as e:
         print(f"Error in recommended sections: {e}")
         return RecommendedSectionsResponse(for_you=[], popular=[], by_genre=[])
@@ -68,6 +68,15 @@ async def track_book(
         print(f"Error in track_book: {e}")
         return {"success": False, "message": "Failed to track book view"}
 
+@router.get("/{book_id}/summary")
+async def get_book_summary(
+    book_id: str,
+    service: BookService = Depends(get_book_service)
+):
+    summary = await service.get_book_summary(book_id)
+    # Even if it's a "Not available" string, we return 200 to let frontend show it
+    return {"summary": summary}
+
 @router.get("/{book_id}", response_model=Book)
 async def get_book(
     book_id: str,
@@ -77,16 +86,6 @@ async def get_book(
     if not book:
         raise HTTPException(status_code=404, detail="Book not found")
     return book
-
-@router.get("/{book_id}/summary")
-async def get_book_summary(
-    book_id: str,
-    service: BookService = Depends(get_book_service)
-):
-    summary = await service.get_book_summary(book_id)
-    if not summary:
-        raise HTTPException(status_code=404, detail="Summary not available")
-    return {"summary": summary}
 
 # Add this temporary endpoint to check
 @router.get("/debug/check-books")

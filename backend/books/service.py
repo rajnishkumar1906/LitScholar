@@ -3,7 +3,7 @@ import json
 import random
 import asyncio
 from typing import List, Optional, Dict, Any
-from books.schemas import Book
+from books.schemas import Book, RecommendedBook, GenreSection, RecommendedSectionsResponse
 from retrieval.neon_fetch import fetch_books_by_ids
 from retrieval.retriever import search_books
 from llm.gemini_client import ask_gemini
@@ -13,11 +13,13 @@ class BookService:
         self.db = db
         print("✅ BookService initialized")
     
-    async def get_book_by_id(self, book_id: str) -> Optional[Dict[str, Any]]:
+    async def get_book_by_id(self, book_id: str) -> Optional[Book]:
         """Get single book by ID"""
         try:
             books = await fetch_books_by_ids([book_id])
-            return books[0] if books else None
+            if books:
+                return Book(**books[0])
+            return None
         except Exception as e:
             print(f"Error in get_book_by_id: {e}")
             return None
@@ -26,13 +28,26 @@ class BookService:
         """Generate and save summary for a book if it doesn't exist"""
         try:
             # 1. Check if summary already exists in DB
+            # book_id should be treated as string if the database expects it (TEXT/VARCHAR)
+            # but we can try to be flexible
             row = await self.db.fetchrow(
                 "SELECT summary, book_title, author, genres, book_details FROM books WHERE book_id = $1",
-                int(book_id)
+                str(book_id)
             )
             
             if not row:
-                return None
+                # Fallback: try as integer if string failed (though the error said it expected str)
+                try:
+                    row = await self.db.fetchrow(
+                        "SELECT summary, book_title, author, genres, book_details FROM books WHERE book_id = $1",
+                        int(book_id)
+                    )
+                except Exception:
+                    pass
+            
+            if not row:
+                print(f"❌ Book with ID {book_id} not found in database.")
+                return "Summary not available for this book."
                 
             if row["summary"]:
                 return row["summary"]
@@ -56,18 +71,32 @@ Description:
             
             if summary and "ERROR:" not in summary:
                 # Save to database
-                await self.db.execute(
-                    "UPDATE books SET summary = $1 WHERE book_id = $2",
-                    summary,
-                    int(book_id)
-                )
+                # Determine correct ID type for update
+                save_id = str(book_id)
+                try:
+                    await self.db.execute(
+                        "UPDATE books SET summary = $1 WHERE book_id = $2",
+                        summary,
+                        save_id
+                    )
+                except Exception:
+                    # try as int if string update failed
+                    await self.db.execute(
+                        "UPDATE books SET summary = $1 WHERE book_id = $2",
+                        summary,
+                        int(book_id)
+                    )
+
                 print(f"✅ On-demand summary saved for: {row['book_title']}")
                 return summary
             
-            return None
+            # If Gemini returned an error message or was empty
+            print(f"⚠️ Gemini failed to generate summary for {row['book_title']}: {summary}")
+            return "Summary not available at this moment. Please try again later."
+            
         except Exception as e:
-            print(f"Error in get_book_summary: {e}")
-            return None
+            print(f"❌ Error in get_book_summary: {e}")
+            return "Summary not available due to a technical error."
     
     async def track_book_view(self, user_id: str, book_id: str) -> dict:
         """Track user book view/click with count and timestamp."""
@@ -125,7 +154,7 @@ Description:
         user_id: str,
         page: int = 1,
         limit: int = 8
-    ) -> List[Dict[str, Any]]:
+    ) -> List[RecommendedBook]:
         """
         Personalized recommendations: uses this user's history first, then other users'
         experience (similar users), then genre match, then global popular.
@@ -263,9 +292,11 @@ Description:
                     return []
             
             # 7. Fetch full book details (fetch_books_by_ids expects string IDs)
-            books = await fetch_books_by_ids(paginated_ids) if paginated_ids else []
-            print(f"Returning {len(books)} recommended books")
-            return books
+            books_data = await fetch_books_by_ids(paginated_ids) if paginated_ids else []
+            print(f"Returning {len(books_data)} recommended books")
+            
+            # Convert to Pydantic objects
+            return [RecommendedBook(**b) for b in books_data]
             
         except Exception as e:
             print(f"❌ Critical error in recommendations: {str(e)}")
@@ -274,7 +305,8 @@ Description:
                 random_query = "SELECT book_id FROM books ORDER BY RANDOM() LIMIT $1"
                 random_books = await self.db.fetch(random_query, limit)
                 random_ids = [str(row["book_id"]) for row in random_books] if random_books else []
-                return await fetch_books_by_ids(random_ids) if random_ids else []
+                books_data = await fetch_books_by_ids(random_ids) if random_ids else []
+                return [RecommendedBook(**b) for b in books_data]
             except Exception:
                 return []
 
@@ -296,16 +328,16 @@ Description:
         popular_limit: int = 12,
         genres_limit: int = 6,
         books_per_genre: int = 4,
-    ) -> Dict[str, Any]:
+    ) -> RecommendedSectionsResponse:
         """
         Return structured sections:
         - popular: always filled (global popular or random)
         - for_you: only when user has past experience
         - by_genre: 4 books per genre
         """
-        for_you: List[Dict[str, Any]] = []
-        popular: List[Dict[str, Any]] = []
-        by_genre: List[Dict[str, Any]] = []
+        for_you: List[RecommendedBook] = []
+        popular: List[RecommendedBook] = []
+        by_genre: List[GenreSection] = []
 
         try:
             uid = int(user_id)
@@ -392,7 +424,7 @@ Description:
         # 2. Fetch all books in ONE single call
         unique_ids = list(set(all_ids_to_fetch))
         all_fetched_books = await fetch_books_by_ids(unique_ids)
-        book_map = {str(b["book_id"]): b for b in all_fetched_books}
+        book_map = {str(b["book_id"]): RecommendedBook(**b) for b in all_fetched_books}
 
         # 3. Reconstruct popular and by_genre sections from book_map
         popular = [book_map[bid] for bid in popular_ids if bid in book_map]
@@ -400,10 +432,10 @@ Description:
         for genre, ids in genre_ids_map.items():
             books_list = [book_map[bid] for bid in ids if bid in book_map]
             if books_list:
-                by_genre.append({"genre": genre, "books": books_list})
+                by_genre.append(GenreSection(genre=genre, books=books_list))
 
-        return {
-            "for_you": for_you,
-            "popular": popular,
-            "by_genre": by_genre,
-        }
+        return RecommendedSectionsResponse(
+            for_you=for_you,
+            popular=popular,
+            by_genre=by_genre,
+        )

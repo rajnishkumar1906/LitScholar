@@ -45,11 +45,10 @@ async def ask(payload: AssistantRequest):  # Make it async
 
         # Print the actual books that would go to the LLM
         print("\n[DEBUG] Top matching books that would be sent to LLM:")
-        print("Rank | Book ID     | Title (if available) | Score")
+        print("Rank | Book ID     | Title (if available)")
         for idx, book in enumerate(books, 1):
             title = book.get('title', 'Unknown title')
-            score = next((r['score'] for r in results if r['book_id'] == book['book_id']), 'N/A')
-            print(f"{idx:4} | {book['book_id']} | {title[:60]:60} | {score}")
+            print(f"{idx:4} | {book['book_id']} | {title[:60]:60}")
 
         # Call LLM with the new format that returns citations
         llm_result = librarian_answer(payload.question, books)
