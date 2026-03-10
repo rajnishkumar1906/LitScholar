@@ -1,15 +1,21 @@
 from pydantic import BaseModel
-from typing import Dict, List
+from typing import List
 
 
 class AssistantRequest(BaseModel):
     question: str
     top_k: int = 5
-    book_ids: List[str] | None = None  # optional: use these books first (e.g. for follow-ups)
+
+
+class BookResponse(BaseModel):
+    book_id: str
+    title: str
+    author: str
+    genres: str | None = None
+    image_url: str | None = None
 
 
 class AssistantResponse(BaseModel):
     question: str
     answer: str
-    citations: Dict[str, str]  # [1] -> book_id
-    sources: List[dict]
+    books: List[BookResponse]

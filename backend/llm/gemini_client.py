@@ -1,6 +1,3 @@
-"""
-Gemini LLM client. API key from env GEMINI_API_KEY or backend config.
-"""
 # from google import genai
 import google.genai as genai
 from core.config import settings

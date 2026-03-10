@@ -29,7 +29,7 @@ export default function Profile() {
     bio: '',
     location: '',
     favoriteGenres: [],
-    readingGoal: 0,
+    readingGoal: 12,
     booksRead: 0,
     joinDate: ''
   });
@@ -47,7 +47,7 @@ export default function Profile() {
   const [recentActivities, setRecentActivities] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
-  // Fetch user's books and activity - USING CONTEXT FUNCTIONS
+  // Fetch user's books and activity
   const fetchUserBooksAndActivity = async () => {
     if (!user) return;
 
@@ -58,8 +58,15 @@ export default function Profile() {
         fetchUserActivity(5)
       ]);
 
-      if (booksRes.success) setReadingHistory(booksRes.books);
-      if (activityRes.success) setRecentActivities(activityRes.activities);
+      if (booksRes.success) {
+        console.log("📚 Reading history:", booksRes.books);
+        setReadingHistory(booksRes.books || []);
+      }
+      
+      if (activityRes.success) {
+        console.log("📋 Recent activities:", activityRes.activities);
+        setRecentActivities(activityRes.activities || []);
+      }
     } catch (error) {
       console.error('Error fetching user data:', error);
     } finally {
@@ -70,13 +77,27 @@ export default function Profile() {
   const updateProfileState = (profileData, userData = null) => {
     const userInfo = userData || user || {};
 
+    // Parse categories_read if it's a string
+    let categories = [];
+    if (profileData?.categories_read) {
+      if (typeof profileData.categories_read === 'string') {
+        try {
+          categories = JSON.parse(profileData.categories_read);
+        } catch {
+          categories = [profileData.categories_read];
+        }
+      } else if (Array.isArray(profileData.categories_read)) {
+        categories = profileData.categories_read;
+      }
+    }
+
     setProfile({
       name: userInfo.full_name || userInfo.email?.split('@')[0] || '',
       email: userInfo.email || '',
       bio: userInfo.bio || '',
       location: userInfo.location || '',
-      favoriteGenres: Array.isArray(profileData?.categories_read) ? profileData.categories_read : [],
-      readingGoal: profileData?.yearly_goal || 0,
+      favoriteGenres: categories,
+      readingGoal: profileData?.yearly_goal || 12,
       booksRead: profileData?.total_books_read || 0,
       joinDate: userInfo.created_at ? new Date(userInfo.created_at).toLocaleDateString('en-US', {
         year: 'numeric',
@@ -104,10 +125,13 @@ export default function Profile() {
       }
 
       try {
+        console.log("👤 Loading profile for user:", user);
+        
         if (profileStats) {
           updateProfileState(profileStats, profileStats.user);
         } else {
           const res = await loadProfile();
+          console.log("📥 Profile loaded:", res);
           if (res.success) {
             updateProfileState(res.profile, res.user);
           }
@@ -122,23 +146,25 @@ export default function Profile() {
     };
 
     init();
-  }, [user]); // Only depend on user, not profileStats
+  }, [user]); // Only depend on user
 
   const handleSave = async () => {
     setSaving(true);
     try {
       const updateData = {
         full_name: profile.name !== user?.email?.split('@')[0] ? profile.name : undefined,
-        yearly_goal: profile.readingGoal,
-        categories_read: profile.favoriteGenres,
         bio: profile.bio || undefined,
-        location: profile.location || undefined
+        location: profile.location || undefined,
+        yearly_goal: profile.readingGoal,
+        categories_read: profile.favoriteGenres
       };
 
       // Remove undefined values
       Object.keys(updateData).forEach(key =>
         updateData[key] === undefined && delete updateData[key]
       );
+
+      console.log("📤 Updating profile with:", updateData);
 
       const result = await updateProfile(updateData);
 
@@ -147,6 +173,7 @@ export default function Profile() {
         toast.success('Profile updated successfully!');
         // Refresh profile data
         await loadProfile();
+        await fetchUserBooksAndActivity();
       }
     } catch (error) {
       console.error('Error saving profile:', error);
@@ -158,6 +185,22 @@ export default function Profile() {
 
   const handleLogout = () => {
     logout();
+  };
+
+  const handleAddGenre = (genre) => {
+    if (genre && !profile.favoriteGenres.includes(genre)) {
+      setProfile({
+        ...profile,
+        favoriteGenres: [...profile.favoriteGenres, genre]
+      });
+    }
+  };
+
+  const handleRemoveGenre = (genreToRemove) => {
+    setProfile({
+      ...profile,
+      favoriteGenres: profile.favoriteGenres.filter(g => g !== genreToRemove)
+    });
   };
 
   if (loading) {
@@ -264,7 +307,7 @@ export default function Profile() {
                         readingGoal: parseInt(e.target.value) || 0
                       })}
                       className="w-20 px-2 py-1 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-800 bg-white/50"
-                      placeholder="0"
+                      placeholder="12"
                     />
                     <span className="text-sm text-gray-600">books/year</span>
                   </div>
@@ -282,15 +325,35 @@ export default function Profile() {
               </div>
 
               {/* Favorite Genres */}
-              {profile.favoriteGenres.length > 0 && (
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {profile.favoriteGenres.map((genre, index) => (
-                    <span key={index} className="px-3 py-1 bg-amber-50 text-amber-900 rounded-full text-xs font-medium border border-amber-200">
-                      {genre}
-                    </span>
-                  ))}
-                </div>
-              )}
+              <div className="mt-4 flex flex-wrap gap-2 items-center">
+                {profile.favoriteGenres.map((genre, index) => (
+                  <span key={index} className="px-3 py-1 bg-amber-50 text-amber-900 rounded-full text-xs font-medium border border-amber-200 flex items-center gap-1">
+                    {genre}
+                    {isEditing && (
+                      <button
+                        onClick={() => handleRemoveGenre(genre)}
+                        className="ml-1 text-amber-700 hover:text-amber-900"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </span>
+                ))}
+                {isEditing && (
+                  <input
+                    type="text"
+                    placeholder="Add genre..."
+                    className="px-3 py-1 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-800 bg-white/50"
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddGenre(e.target.value);
+                        e.target.value = '';
+                      }
+                    }}
+                  />
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -380,20 +443,22 @@ export default function Profile() {
               </div>
             ) : recentActivities.length > 0 ? (
               <div className="space-y-4">
-                {recentActivities.map((activity) => (
-                  <div key={activity.id} className="flex items-start gap-3">
+                {recentActivities.map((activity, index) => (
+                  <div key={activity.id || index} className="flex items-start gap-3">
                     <div className="w-8 h-8 bg-amber-50 rounded-lg flex items-center justify-center">
                       <FaBook className="w-4 h-4 text-amber-700" />
                     </div>
                     <div className="flex-1">
                       <p className="text-gray-800">
-                        <span className="font-medium">{activity.activity_type}</span>{' '}
+                        <span className="font-medium">
+                          {activity.activity_type?.replace(/_/g, ' ') || 'Activity'}
+                        </span>{' '}
                         {activity.book_title && (
                           <span className="text-amber-800">"{activity.book_title}"</span>
                         )}
                       </p>
                       <p className="text-xs text-gray-500">
-                        {new Date(activity.created_at).toLocaleDateString()}
+                        {activity.created_at ? new Date(activity.created_at).toLocaleDateString() : ''}
                       </p>
                     </div>
                   </div>
@@ -426,11 +491,11 @@ export default function Profile() {
               <div className="w-full bg-gray-200 rounded-full h-3">
                 <div
                   className="bg-gradient-to-r from-amber-700 to-amber-800 h-3 rounded-full transition-all duration-500"
-                  style={{ width: `${(profile.booksRead / profile.readingGoal) * 100}%` }}
+                  style={{ width: `${Math.min((profile.booksRead / profile.readingGoal) * 100, 100)}%` }}
                 ></div>
               </div>
               <p className="text-sm text-gray-500 mt-2">
-                {profile.readingGoal - profile.booksRead} more books to reach your goal!
+                {Math.max(profile.readingGoal - profile.booksRead, 0)} more books to reach your goal!
               </p>
             </>
           ) : (

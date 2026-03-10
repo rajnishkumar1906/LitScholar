@@ -1,6 +1,6 @@
 import asyncpg
 import json
-from datetime import datetime
+from datetime import datetime, date
 from typing import Optional, List, Dict, Any
 
 class UserService:
@@ -117,7 +117,15 @@ class UserService:
         """Get user's books with optional filtering"""
         query = """
             SELECT 
-                ub.*,
+                ub.id,
+                ub.user_id,
+                ub.book_id,
+                ub.list_type,
+                ub.start_date,
+                ub.finish_date,
+                ub.rating,
+                ub.notes,
+                ub.created_at,
                 b.book_title,
                 b.author,
                 b.cover_image_url
@@ -153,7 +161,7 @@ class UserService:
             FROM (
                 (SELECT 
                     'book_view' as activity_type,
-                    book_id::bigint as book_id,
+                    book_id as book_id,
                     NULL::int as rating,
                     NULL::text as list_type,
                     last_viewed as created_at,
@@ -169,9 +177,9 @@ class UserService:
                         WHEN list_type = 'reading' THEN 'started_book'
                         ELSE 'added_to_' || COALESCE(list_type, 'list')
                     END as activity_type,
-                    book_id::bigint as book_id,
-                    rating::int as rating,
-                    list_type::text as list_type,
+                    book_id as book_id,
+                    rating as rating,
+                    list_type as list_type,
                     COALESCE(finish_date, start_date, created_at) as created_at,
                     jsonb_build_object(
                         'list_type', list_type,
@@ -180,7 +188,7 @@ class UserService:
                 FROM user_books
                 WHERE user_id = $1)
             ) AS combined_activity
-            LEFT JOIN books b ON b.book_id = combined_activity.book_id
+            LEFT JOIN books b ON b.book_id = combined_activity.book_id::text
             ORDER BY created_at DESC
             LIMIT $2
         """
@@ -194,7 +202,7 @@ class UserService:
     
     async def mark_book_as_finished(self, user_id: int, book_id: str) -> Dict[str, Any]:
         """Mark a book as finished and update reading progress"""
-        # Ensure book_id is handled consistently
+        # Always use string for book_id (your books table uses TEXT)
         str_bid = str(book_id)
         
         # Check if book exists
@@ -203,54 +211,22 @@ class UserService:
             str_bid
         )
         
-        # Fallback for book existence check
-        if not book_exists:
-            try:
-                int_bid = int(book_id)
-                book_exists = await self.db.fetchval(
-                    "SELECT EXISTS(SELECT 1 FROM books WHERE book_id = $1)",
-                    int_bid
-                )
-                if book_exists:
-                    str_bid = int_bid # Use integer for the rest of the queries if that worked
-            except Exception:
-                pass
-
         if not book_exists:
             raise ValueError(f"Book not found with ID: {book_id}")
         
-        # Add to user_books as finished
-        try:
-            await self.db.execute("""
-                INSERT INTO user_books (user_id, book_id, list_type, finish_date)
-                VALUES ($1, $2, 'finished', NOW())
-                ON CONFLICT (user_id, book_id, list_type) 
-                DO UPDATE SET finish_date = NOW(), updated_at = NOW()
-            """, user_id, str_bid)
-        except Exception:
-            # Fallback to int if string failed
-            await self.db.execute("""
-                INSERT INTO user_books (user_id, book_id, list_type, finish_date)
-                VALUES ($1, $2, 'finished', NOW())
-                ON CONFLICT (user_id, book_id, list_type) 
-                DO UPDATE SET finish_date = NOW(), updated_at = NOW()
-            """, user_id, int(book_id))
+        # Add to user_books as finished (use string consistently)
+        await self.db.execute("""
+            INSERT INTO user_books (user_id, book_id, list_type, finish_date)
+            VALUES ($1, $2, 'finished', NOW())
+            ON CONFLICT (user_id, book_id, list_type) 
+            DO UPDATE SET finish_date = NOW(), updated_at = NOW()
+        """, user_id, str_bid)
         
         # Get book pages
-        pages = 0
-        try:
-            pages = await self.db.fetchval(
-                "SELECT num_pages FROM books WHERE book_id = $1",
-                str_bid
-            ) or 0
-        except Exception:
-            try:
-                pages = await self.db.fetchval(
-                    "SELECT num_pages FROM books WHERE book_id = $1",
-                    int(book_id)
-                ) or 0
-            except Exception:
-                pass
+        pages = await self.db.fetchval(
+            "SELECT num_pages FROM books WHERE book_id = $1",
+            str_bid
+        ) or 0
         
         # Update or create reading profile
         profile_exists = await self.db.fetchval(
@@ -265,7 +241,7 @@ class UserService:
                 user_id
             )
             
-            # Increment counters
+            # Update profile with incremented counters
             await self.db.execute("""
                 UPDATE user_reading_profile 
                 SET total_books_read = total_books_read + 1,
@@ -310,17 +286,7 @@ class UserService:
                 'action': 'finished',
                 'timestamp': str(datetime.now())
             }))
-        except Exception:
-            # Fallback to int for activity if string failed
-            try:
-                await self.db.execute("""
-                    INSERT INTO user_activity (user_id, activity_type, book_id, metadata, created_at)
-                    VALUES ($1, $2, $3, $4, NOW())
-                """, user_id, 'finished_book', int(book_id), json.dumps({
-                    'action': 'finished',
-                    'timestamp': str(datetime.now())
-                }))
-            except Exception as e:
-                print(f"⚠️ Failed to log activity for finished book: {e}")
+        except Exception as e:
+            print(f"⚠️ Failed to log activity for finished book: {e}")
         
         return {"success": True, "message": "Book marked as finished!"}

@@ -102,12 +102,9 @@ export const AppProvider = ({ children }) => {
   const login = async (email, password) => {
     try {
       const response = await api.post('/auth/login', { email, password });
-
       await checkAuth();
-
       toast.success("Welcome back! You're logged in 🎉");
       navigate('/dashboard');
-
       return { success: true, data: response.data };
     } catch (error) {
       const msg = error.response?.data?.detail || 'Login failed';
@@ -119,13 +116,9 @@ export const AppProvider = ({ children }) => {
   const register = async (email, password) => {
     try {
       const response = await api.post('/auth/register', { email, password });
-
-      // Get user data after registration
       await checkAuth();
-
       toast.success("Account created successfully! 🎉");
       navigate('/dashboard');
-
       return { success: true, data: response.data };
     } catch (error) {
       const msg = error.response?.data?.detail || 'Registration failed';
@@ -147,6 +140,9 @@ export const AppProvider = ({ children }) => {
       await api.post('/auth/logout');
       setUser(null);
       setShowLogoutConfirm(false);
+      recommendedCacheRef.current = {};
+      sectionsCacheRef.current = null;
+      setProfileStats(null);
       navigate('/');
       toast.success('Logged out successfully');
     } catch (error) {
@@ -162,41 +158,53 @@ export const AppProvider = ({ children }) => {
   };
 
   const searchBooks = async (query, topK = 6) => {
-    setIsSearching(true);
-    setLastQuery(query);
+  setIsSearching(true);
+  setLastQuery(query);
 
-    try {
-      const response = await api.post('/assistant/ask', {
-        question: query,
-        top_k: topK,
-      });
+  try {
+    const response = await api.post("/assistant/ask", {
+      question: query,
+      top_k: topK,
+    });
 
-      const books = response.data.sources.map((source) => ({
-        id: source.book_id,
-        title: source.title,
-        author: source.author,
-        reason: source.description
-          ? source.description.substring(0, 120) + '...'
-          : 'No description available',
-        category: source.genres?.split(',')[0]?.trim() || 'General',
-        rating: 4.5,
-        description: source.description,
-        genres: source.genres,
-        num_pages: source.num_pages,
-        image_url: source.image_url,
-        answer: response.data.answer,
-        citations: response.data.citations,
-      }));
+    const { books = [], answer = "" } = response.data;
 
-      setSearchResults(books);
-      return { success: true, books };
-    } catch (error) {
-      console.error("Search failed:", error);
-      return { success: false, error: 'Search failed' };
-    } finally {
-      setIsSearching(false);
-    }
-  };
+    const formattedBooks = books.map((book) => ({
+      id: book.book_id,
+      book_id: book.book_id,
+      title: book.title,
+      author: book.author,
+      genres: book.genres,
+      category: book.genres?.split(",")[0]?.trim() || "General",
+      image_url: book.image_url,
+      rating: 4.5,
+      reason: "",
+
+      answer,
+    }));
+
+    setSearchResults(formattedBooks);
+
+    return {
+      success: true,
+      books: formattedBooks,
+      
+    };
+
+  } catch (error) {
+    console.error("Search failed:", error);
+
+    toast.error(
+      error?.response?.data?.detail ||
+      "Search failed. Please try again."
+    );
+
+    return { success: false };
+
+  } finally {
+    setIsSearching(false);
+  }
+};
 
   const getBookById = async (bookId) => {
     try {
@@ -244,6 +252,7 @@ export const AppProvider = ({ children }) => {
       };
     } catch (error) {
       console.error('Follow-up question failed:', error);
+      toast.error('Failed to get answer. Please try again.');
       return {
         success: false,
         error: error.response?.data?.detail || 'Follow-up failed',
@@ -251,27 +260,44 @@ export const AppProvider = ({ children }) => {
     }
   };
 
-  const fetchRecommendedBooks = async (pageNumber = 1, limit = 6) => {
+  const fetchRecommendedBooks = async (pageNumber = 1, limit = 8) => {
     const key = `${pageNumber}-${limit}`;
+    
+    // Check cache first (for 2 minutes)
     const cached = recommendedCacheRef.current[key];
-    if (cached) {
-      return cached;
+    if (cached && Date.now() - cached.timestamp < 2 * 60 * 1000) {
+      console.log(`📦 Using cached data for page ${pageNumber}`);
+      return cached.data;
     }
 
     try {
+      console.log(`📡 Fetching recommended books - page ${pageNumber}, limit ${limit}`);
       const response = await api.get(`/books/recommended?page=${pageNumber}&limit=${limit}`);
 
       const result = {
         success: true,
-        books: response.data,
+        books: response.data || [],
         hasMore: response.data.length === limit,
         page: pageNumber,
       };
 
-      recommendedCacheRef.current[key] = result;
+      // Store in cache
+      recommendedCacheRef.current[key] = {
+        data: result,
+        timestamp: Date.now()
+      };
+
+      console.log(`✅ Loaded ${response.data.length} books for page ${pageNumber}`);
       return result;
     } catch (error) {
       console.error('Error fetching recommended books:', error);
+      
+      // Return cached data if available
+      if (cached) {
+        console.log('📦 Using expired cache as fallback');
+        return cached.data;
+      }
+      
       return {
         success: false,
         books: [],
@@ -281,21 +307,44 @@ export const AppProvider = ({ children }) => {
     }
   };
 
-  const fetchRecommendedSections = async () => {
-    if (sectionsCacheRef.current) {
-      return { success: true, ...sectionsCacheRef.current };
+  const fetchRecommendedSections = async (forceRefresh = false) => {
+    // Check cache first (for 5 minutes)
+    if (!forceRefresh && sectionsCacheRef.current) {
+      const cacheAge = Date.now() - sectionsCacheRef.current.timestamp;
+      if (cacheAge < 5 * 60 * 1000) {
+        console.log("📦 Using cached sections");
+        return { success: true, ...sectionsCacheRef.current.data };
+      }
     }
+
     try {
+      console.log("📡 Fetching recommended sections");
       const response = await api.get('/books/recommended/sections');
+      
       const data = {
-        for_you: response.data.for_you || [],
-        popular: response.data.popular || [],
-        by_genre: response.data.by_genre || [],
+        for_you: Array.isArray(response.data.for_you) ? response.data.for_you : [],
+        popular: Array.isArray(response.data.popular) ? response.data.popular : [],
+        by_genre: Array.isArray(response.data.by_genre) ? response.data.by_genre : [],
       };
-      sectionsCacheRef.current = data;
+
+      console.log(`✅ Sections loaded - For you: ${data.for_you.length}, Popular: ${data.popular.length}, Genres: ${data.by_genre.length}`);
+
+      // Cache the data
+      sectionsCacheRef.current = {
+        data,
+        timestamp: Date.now()
+      };
+
       return { success: true, ...data };
     } catch (error) {
       console.error('Error fetching recommended sections:', error);
+      
+      // Return cached data if available
+      if (sectionsCacheRef.current) {
+        console.log('📦 Using cached sections as fallback');
+        return { success: true, ...sectionsCacheRef.current.data };
+      }
+      
       return {
         success: false,
         for_you: [],
@@ -317,24 +366,23 @@ export const AppProvider = ({ children }) => {
 
   const loadProfile = useCallback(async () => {
     try {
-      // Get both profile stats and user details
       const [profileRes, userRes] = await Promise.all([
         api.get('/users/profile'),
         api.get('/users/me')
       ]);
 
-      setProfileStats({
+      const profileData = {
         ...profileRes.data,
-        user: userRes.data  // This will include bio, location, full_name
-      });
-
-      return {
-        success: true,
-        profile: profileRes.data,
         user: userRes.data
       };
+
+      setProfileStats(profileData);
+      return { success: true, profile: profileRes.data, user: userRes.data };
     } catch (error) {
       console.error('Error loading profile:', error);
+      if (error.response?.status !== 401) {
+        toast.error('Failed to load profile');
+      }
       return {
         success: false,
         error: error.response?.data?.detail || 'Failed to load profile',
@@ -346,9 +394,12 @@ export const AppProvider = ({ children }) => {
     try {
       const response = await api.put('/users/profile', profileData);
 
-      // Update the profileStats state with new data
       if (response.data) {
-        setProfileStats(response.data);
+        setProfileStats(prev => ({
+          ...prev,
+          ...response.data,
+          user: prev?.user || response.data.user
+        }));
       }
 
       toast.success('Profile updated successfully!');
@@ -369,10 +420,12 @@ export const AppProvider = ({ children }) => {
       return { success: true, books: response.data };
     } catch (error) {
       console.error('Error fetching user books:', error);
+      if (error.response?.status !== 401) {
+        toast.error('Failed to load your books');
+      }
       return { success: false, books: [] };
     }
   }, []);
-
 
   const fetchUserActivity = useCallback(async (limit = 10) => {
     try {
@@ -380,32 +433,70 @@ export const AppProvider = ({ children }) => {
       return { success: true, activities: response.data };
     } catch (error) {
       console.error('Error fetching user activity:', error);
+      if (error.response?.status !== 401) {
+        toast.error('Failed to load activity');
+      }
       return { success: false, activities: [] };
     }
   }, []);
 
   const finishBook = async (bookId) => {
     try {
-      // Send as JSON object with book_id field
-      const response = await api.post('/users/books/finish', {
-        book_id: bookId
-      });
+      const response = await api.post('/users/books/finish', { book_id: bookId });
 
       if (response.data.success) {
-        toast.success('📚 Book marked as finished! Reading goal updated.');
+        toast.success('📚 Book marked as finished!');
         await loadProfile();
         return { success: true, data: response.data };
       }
       return { success: false, error: 'Failed to mark book as finished' };
     } catch (error) {
       console.error('Error finishing book:', error);
-      toast.error(error.response?.data?.detail || 'Failed to mark book as finished');
+      if (error.response?.status === 400) {
+        toast.error('Book already marked as finished');
+      } else {
+        toast.error(error.response?.data?.detail || 'Failed to mark book as finished');
+      }
       return {
         success: false,
         error: error.response?.data?.detail || 'Failed to mark book as finished',
       };
     }
   };
+
+  const addUserBook = async (bookId, listType, rating = null, notes = null) => {
+  try {
+    const response = await api.post('/books/user/books', {
+      book_id: bookId,
+      list_type: listType,
+      rating: rating,
+      notes: notes
+    });
+
+    if (response.data.success) {
+      toast.success(`Book added to ${listType} list!`);
+      
+      // Refresh user books if needed
+      if (listType === 'finished') {
+        await loadProfile();
+      }
+      
+      return { success: true, data: response.data };
+    }
+    return { success: false, error: 'Failed to add book' };
+  } catch (error) {
+    console.error('Error adding user book:', error);
+    if (error.response?.status === 400 && error.response?.data?.message?.includes('already')) {
+      toast.info('Book already in this list');
+    } else {
+      toast.error(error.response?.data?.message || 'Failed to add book');
+    }
+    return {
+      success: false,
+      error: error.response?.data?.message || 'Failed to add book',
+    };
+  }
+};
 
   const value = {
     user,
@@ -434,8 +525,8 @@ export const AppProvider = ({ children }) => {
     updateProfile,
     fetchUserBooks,
     fetchUserActivity,
-
-    finishBook
+    finishBook,
+    addUserBook
   };
 
   return (
@@ -446,13 +537,22 @@ export const AppProvider = ({ children }) => {
         onConfirm={confirmLogout}
         onCancel={cancelLogout}
       />
-      <ToastContainer position="top-right" autoClose={2500} theme="dark" limit={4} />
+      <ToastContainer 
+        position="top-right" 
+        autoClose={2500} 
+        theme="dark" 
+        limit={4}
+        newestOnTop
+        pauseOnHover
+      />
     </AppContext.Provider>
   );
 };
 
 export const useApp = () => {
   const context = useContext(AppContext);
-  if (!context) throw new Error('useApp must be used within AppProvider');
+  if (!context) {
+    throw new Error('useApp must be used within AppProvider');
+  }
   return context;
 };
