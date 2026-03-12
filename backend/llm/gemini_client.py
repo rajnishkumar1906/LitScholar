@@ -17,13 +17,13 @@ def _get_client():
         _last_api_key = current_key
     return _client
 
-# GEMINI_MODEL = "gemini-1.5-flash"
+
 GEMINI_MODELS = [
-    "gemini-1.5-flash", 
-    "gemini-1.5-flash-latest",
-    "gemini-2.0-flash", 
-    "gemini-1.5-flash-8b"
+    "gemini-2.0-flash",
+    "gemini-2.0-flash-lite",
+    'gemini-2.5-flash-lite'
 ]
+
 
 def clean_llm_output(text):
     """
@@ -52,7 +52,9 @@ def clean_llm_output(text):
 def ask_gemini(prompt: str) -> str:
     """Send prompt to Gemini and return response text with model fallback."""
     api_key = (settings.GEMINI_API_KEY or "").strip()
-    if not api_key:
+    if api_key:
+        print(f'Api key : {api_key}')
+    else:
         print("❌ GEMINI_API_KEY is missing in settings!")
         raise ValueError("GEMINI_API_KEY is not set. Add it to your .env file.")
     

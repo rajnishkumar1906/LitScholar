@@ -14,6 +14,7 @@ const api = axios.create({
   withCredentials: true,
 });
 
+// Request interceptor
 api.interceptors.request.use(
   (config) => {
     console.log("📡 Request to:", config.url);
@@ -22,6 +23,7 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+// Response interceptor with token refresh
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -48,35 +50,41 @@ api.interceptors.response.use(
         await axios.post(`${config.API_URL}/auth/refresh`, {}, {
           withCredentials: true
         });
-
         console.log("✅ Token refreshed successfully");
         return api(originalRequest);
-
       } catch (refreshError) {
-        console.log("❌ Token refresh failed - user needs to login");
+        console.log("❌ Token refresh failed");
         if (!window.location.pathname.includes('/login')) {
           window.location.href = '/login';
         }
         return Promise.reject(refreshError);
       }
     }
-
     return Promise.reject(error);
   }
 );
 
 export const AppProvider = ({ children }) => {
   const navigate = useNavigate();
+
+  // Auth state
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+
+  // Search state
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const [lastQuery, setLastQuery] = useState('');
-  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-  const recommendedCacheRef = useRef({});
-  const sectionsCacheRef = useRef(null);
+
+  // Profile state
   const [profileStats, setProfileStats] = useState(null);
 
+  // Cache refs
+  const recommendedCacheRef = useRef({});
+  const sectionsCacheRef = useRef(null);
+
+  // ============ AUTH FUNCTIONS ============
   useEffect(() => {
     checkAuth();
   }, []);
@@ -89,7 +97,7 @@ export const AppProvider = ({ children }) => {
       console.log("✅ User authenticated:", response.data);
     } catch (error) {
       if (error.response?.status === 401) {
-        console.log("ℹ️ User not authenticated - this is normal");
+        console.log("ℹ️ User not authenticated");
         setUser(null);
       } else {
         console.error("❌ Auth check failed:", error);
@@ -131,7 +139,7 @@ export const AppProvider = ({ children }) => {
     window.location.href = `${config.API_URL}/auth/google/login`;
   };
 
-  const logout = async () => {
+  const logout = () => {
     setShowLogoutConfirm(true);
   };
 
@@ -157,54 +165,44 @@ export const AppProvider = ({ children }) => {
     setShowLogoutConfirm(false);
   };
 
+  const isAuthenticated = () => !!user;
+
+  // ============ BOOK SEARCH & ASSISTANT ============
   const searchBooks = async (query, topK = 6) => {
-  setIsSearching(true);
-  setLastQuery(query);
+    setIsSearching(true);
+    setLastQuery(query);
 
-  try {
-    const response = await api.post("/assistant/ask", {
-      question: query,
-      top_k: topK,
-    });
+    try {
+      const response = await api.post("/assistant/ask", {
+        question: query,
+        top_k: topK,
+      });
 
-    const { books = [], answer = "" } = response.data;
+      const { books = [], answer = "" } = response.data;
 
-    const formattedBooks = books.map((book) => ({
-      id: book.book_id,
-      book_id: book.book_id,
-      title: book.title,
-      author: book.author,
-      genres: book.genres,
-      category: book.genres?.split(",")[0]?.trim() || "General",
-      image_url: book.image_url,
-      rating: 4.5,
-      reason: "",
+      const formattedBooks = books.map((book) => ({
+        id: book.book_id,
+        book_id: book.book_id,
+        title: book.title,
+        author: book.author,
+        genres: book.genres,
+        category: book.genres?.split(",")[0]?.trim() || "General",
+        image_url: book.image_url,
+        rating: 4.5,
+        reason: "",
+        answer,
+      }));
 
-      answer,
-    }));
-
-    setSearchResults(formattedBooks);
-
-    return {
-      success: true,
-      books: formattedBooks,
-      
-    };
-
-  } catch (error) {
-    console.error("Search failed:", error);
-
-    toast.error(
-      error?.response?.data?.detail ||
-      "Search failed. Please try again."
-    );
-
-    return { success: false };
-
-  } finally {
-    setIsSearching(false);
-  }
-};
+      setSearchResults(formattedBooks);
+      return { success: true, books: formattedBooks };
+    } catch (error) {
+      console.error("Search failed:", error);
+      toast.error(error?.response?.data?.detail || "Search failed. Please try again.");
+      return { success: false };
+    } finally {
+      setIsSearching(false);
+    }
+  };
 
   const getBookById = async (bookId) => {
     try {
@@ -234,17 +232,11 @@ export const AppProvider = ({ children }) => {
 
   const askFollowUp = async (question, books = []) => {
     try {
-      const bookIds = books
-        .map((b) => b.id || b.book_id)
-        .filter(Boolean);
-
+      const bookIds = books.map((b) => b.id || b.book_id).filter(Boolean);
       const payload = { question };
-      if (bookIds.length) {
-        payload.book_ids = bookIds;
-      }
+      if (bookIds.length) payload.book_ids = bookIds;
 
       const response = await api.post('/assistant/ask', payload);
-
       return {
         success: true,
         answer: response.data.answer,
@@ -260,55 +252,133 @@ export const AppProvider = ({ children }) => {
     }
   };
 
-  const fetchRecommendedBooks = async (pageNumber = 1, limit = 8) => {
-    const key = `${pageNumber}-${limit}`;
-    
-    // Check cache first (for 2 minutes)
-    const cached = recommendedCacheRef.current[key];
-    if (cached && Date.now() - cached.timestamp < 2 * 60 * 1000) {
-      console.log(`📦 Using cached data for page ${pageNumber}`);
-      return cached.data;
-    }
+  // ============ RECOMMENDATION FUNCTIONS (4 Core) ============
 
+  /**
+   * 1. FOR YOU - Personalized recommendations
+   */
+  const fetchForYouBooks = async (limit = 8) => {
     try {
-      console.log(`📡 Fetching recommended books - page ${pageNumber}, limit ${limit}`);
-      const response = await api.get(`/books/recommended?page=${pageNumber}&limit=${limit}`);
-
-      const result = {
+      console.log("📡 Fetching For You recommendations");
+      const response = await api.get('/books/recommended/for-you', {
+        params: { limit }
+      });
+      return {
         success: true,
-        books: response.data || [],
-        hasMore: response.data.length === limit,
-        page: pageNumber,
+        books: response.data.books || []
       };
-
-      // Store in cache
-      recommendedCacheRef.current[key] = {
-        data: result,
-        timestamp: Date.now()
-      };
-
-      console.log(`✅ Loaded ${response.data.length} books for page ${pageNumber}`);
-      return result;
     } catch (error) {
-      console.error('Error fetching recommended books:', error);
-      
-      // Return cached data if available
-      if (cached) {
-        console.log('📦 Using expired cache as fallback');
-        return cached.data;
-      }
-      
+      console.error('Error fetching For You books:', error);
       return {
         success: false,
         books: [],
-        hasMore: false,
-        error: error.response?.data?.detail || 'Failed to fetch recommendations',
+        error: error.response?.data?.detail || 'Failed to load For You books'
       };
     }
   };
 
+  /**
+   * 2. POPULAR - Trending books
+   */
+  const fetchPopularBooks = async (limit = 8) => {
+    try {
+      console.log("📡 Fetching Popular books");
+      const response = await api.get('/books/recommended/popular', {
+        params: { limit }
+      });
+      return {
+        success: true,
+        books: response.data.books || []
+      };
+    } catch (error) {
+      console.error('Error fetching Popular books:', error);
+      return {
+        success: false,
+        books: [],
+        error: error.response?.data?.detail || 'Failed to load Popular books'
+      };
+    }
+  };
+
+  /**
+   * 3. BY GENRE - Books grouped by genre
+   */
+  const fetchGenreBooks = async (limit = 4) => {
+    try {
+      console.log("📡 Fetching Genre books");
+      const response = await api.get('/books/recommended/by-genre', {
+        params: { limit }
+      });
+      return {
+        success: true,
+        books: response.data.books || []
+      };
+    } catch (error) {
+      console.error('Error fetching Genre books:', error);
+      return {
+        success: false,
+        books: [],
+        error: error.response?.data?.detail || 'Failed to load Genre books'
+      };
+    }
+  };
+
+  /**
+   * 4. SIMILAR - Similar books with pagination
+   */
+  const fetchSimilarBooks = async (page = 1, limit = 8) => {
+    const cacheKey = `${page}-${limit}`;
+
+    // Check cache (2 minutes)
+    const cached = recommendedCacheRef.current[cacheKey];
+    if (cached && Date.now() - cached.timestamp < 2 * 60 * 1000) {
+      console.log(`📦 Using cached similar books for page ${page}`);
+      return cached.data;
+    }
+
+    try {
+      console.log(`📡 Fetching Similar books - page ${page}, limit ${limit}`);
+      const response = await api.get('/books/recommended/similar', {
+        params: { page, limit }
+      });
+
+      const result = {
+        success: true,
+        books: response.data.books || [],
+        hasMore: response.data.hasMore || false,
+        page: response.data.page || page
+      };
+
+      // Update cache
+      recommendedCacheRef.current[cacheKey] = {
+        data: result,
+        timestamp: Date.now()
+      };
+
+      return result;
+    } catch (error) {
+      console.error('Error fetching Similar books:', error);
+
+      // Return cached if available
+      if (cached) {
+        console.log('📦 Using expired cache as fallback');
+        return cached.data;
+      }
+
+      return {
+        success: false,
+        books: [],
+        hasMore: false,
+        error: error.response?.data?.detail || 'Failed to load Similar books'
+      };
+    }
+  };
+
+  /**
+   * Get all recommendation sections at once (for dashboard)
+   */
   const fetchRecommendedSections = async (forceRefresh = false) => {
-    // Check cache first (for 5 minutes)
+    // Check cache (5 minutes)
     if (!forceRefresh && sectionsCacheRef.current) {
       const cacheAge = Date.now() - sectionsCacheRef.current.timestamp;
       if (cacheAge < 5 * 60 * 1000) {
@@ -320,16 +390,13 @@ export const AppProvider = ({ children }) => {
     try {
       console.log("📡 Fetching recommended sections");
       const response = await api.get('/books/recommended/sections');
-      
+
       const data = {
-        for_you: Array.isArray(response.data.for_you) ? response.data.for_you : [],
-        popular: Array.isArray(response.data.popular) ? response.data.popular : [],
-        by_genre: Array.isArray(response.data.by_genre) ? response.data.by_genre : [],
+        for_you: response.data.for_you || [],
+        popular: response.data.popular || [],
+        by_genre: response.data.by_genre || [],
       };
 
-      console.log(`✅ Sections loaded - For you: ${data.for_you.length}, Popular: ${data.popular.length}, Genres: ${data.by_genre.length}`);
-
-      // Cache the data
       sectionsCacheRef.current = {
         data,
         timestamp: Date.now()
@@ -338,13 +405,11 @@ export const AppProvider = ({ children }) => {
       return { success: true, ...data };
     } catch (error) {
       console.error('Error fetching recommended sections:', error);
-      
-      // Return cached data if available
+
       if (sectionsCacheRef.current) {
-        console.log('📦 Using cached sections as fallback');
         return { success: true, ...sectionsCacheRef.current.data };
       }
-      
+
       return {
         success: false,
         for_you: [],
@@ -355,14 +420,87 @@ export const AppProvider = ({ children }) => {
     }
   };
 
+  // ============ USER BOOK INTERACTIONS ============
+
   const trackBook = async (bookId) => {
     try {
       await api.post(`/books/track/${bookId}`);
       console.log(`📘 Book ${bookId} tracked`);
+      return { success: true };
     } catch (error) {
       console.log('Error tracking book:', error);
+      return { success: false };
     }
   };
+
+  const addUserBook = async (bookId, listType, rating = null, notes = null) => {
+    try {
+      const response = await api.post('/books/user/books', {
+        book_id: bookId,
+        list_type: listType,
+        rating,
+        notes
+      });
+
+      if (response.data.success) {
+        toast.success(`Book added to ${listType} list!`);
+        if (listType === 'finished') await loadProfile();
+        return { success: true, data: response.data };
+      }
+      return { success: false, error: 'Failed to add book' };
+    } catch (error) {
+      console.error('Error adding user book:', error);
+      if (error.response?.status === 400 && error.response?.data?.message?.includes('already')) {
+        toast.info('Book already in this list');
+      } else {
+        toast.error(error.response?.data?.message || 'Failed to add book');
+      }
+      return {
+        success: false,
+        error: error.response?.data?.message || 'Failed to add book',
+      };
+    }
+  };
+
+  /**
+ * Mark a book as finished
+ */
+  /**
+ * Mark a book as finished
+ */
+  const finishBook = async (bookId) => {
+    try {
+      // FIX: Change from '/users/books/finish' to '/books/finish'
+      const response = await api.post('/books/finish', { book_id: bookId });
+
+      if (response.data.success) {
+        toast.success('📚 Book marked as finished!');
+        await loadProfile(); // Refresh profile to update stats
+        return { success: true, data: response.data };
+      }
+      return { success: false, error: 'Failed to mark book as finished' };
+    } catch (error) {
+      console.error('Error finishing book:', error);
+
+      // Handle specific error cases
+      if (error.response?.status === 400) {
+        toast.error('Invalid request');
+      } else if (error.response?.status === 401) {
+        toast.error('Please login to mark books as finished');
+      } else if (error.response?.status === 404) {
+        toast.error('Book not found');
+      } else {
+        toast.error(error.response?.data?.detail || 'Failed to mark book as finished');
+      }
+
+      return {
+        success: false,
+        error: error.response?.data?.detail || 'Failed to mark book as finished',
+      };
+    }
+  };
+
+  // ============ PROFILE FUNCTIONS ============
 
   const loadProfile = useCallback(async () => {
     try {
@@ -393,7 +531,6 @@ export const AppProvider = ({ children }) => {
   const updateProfile = async (profileData) => {
     try {
       const response = await api.put('/users/profile', profileData);
-
       if (response.data) {
         setProfileStats(prev => ({
           ...prev,
@@ -401,7 +538,6 @@ export const AppProvider = ({ children }) => {
           user: prev?.user || response.data.user
         }));
       }
-
       toast.success('Profile updated successfully!');
       return { success: true, profile: response.data };
     } catch (error) {
@@ -440,93 +576,48 @@ export const AppProvider = ({ children }) => {
     }
   }, []);
 
-  const finishBook = async (bookId) => {
-    try {
-      const response = await api.post('/users/books/finish', { book_id: bookId });
-
-      if (response.data.success) {
-        toast.success('📚 Book marked as finished!');
-        await loadProfile();
-        return { success: true, data: response.data };
-      }
-      return { success: false, error: 'Failed to mark book as finished' };
-    } catch (error) {
-      console.error('Error finishing book:', error);
-      if (error.response?.status === 400) {
-        toast.error('Book already marked as finished');
-      } else {
-        toast.error(error.response?.data?.detail || 'Failed to mark book as finished');
-      }
-      return {
-        success: false,
-        error: error.response?.data?.detail || 'Failed to mark book as finished',
-      };
-    }
-  };
-
-  const addUserBook = async (bookId, listType, rating = null, notes = null) => {
-  try {
-    const response = await api.post('/books/user/books', {
-      book_id: bookId,
-      list_type: listType,
-      rating: rating,
-      notes: notes
-    });
-
-    if (response.data.success) {
-      toast.success(`Book added to ${listType} list!`);
-      
-      // Refresh user books if needed
-      if (listType === 'finished') {
-        await loadProfile();
-      }
-      
-      return { success: true, data: response.data };
-    }
-    return { success: false, error: 'Failed to add book' };
-  } catch (error) {
-    console.error('Error adding user book:', error);
-    if (error.response?.status === 400 && error.response?.data?.message?.includes('already')) {
-      toast.info('Book already in this list');
-    } else {
-      toast.error(error.response?.data?.message || 'Failed to add book');
-    }
-    return {
-      success: false,
-      error: error.response?.data?.message || 'Failed to add book',
-    };
-  }
-};
-
+  // ============ CONTEXT VALUE ============
   const value = {
+    // Auth
     user,
     loading,
-    searchResults,
-    isSearching,
-    lastQuery,
     login,
     register,
     logout,
     googleLogin,
-    isAuthenticated: () => !!user,
+    isAuthenticated,
+    showLogoutConfirm,
+    confirmLogout,
+    cancelLogout,
+
+    // Search & Assistant
+    searchResults,
+    isSearching,
+    lastQuery,
     searchBooks,
     getBookById,
     getBookSummary,
     askFollowUp,
     setSearchResults,
-    showLogoutConfirm,
-    confirmLogout,
-    cancelLogout,
-    fetchRecommendedBooks,
+
+    // Recommendations (4 Core)
+    fetchForYouBooks,
+    fetchPopularBooks,
+    fetchGenreBooks,
+    fetchSimilarBooks,
     fetchRecommendedSections,
+
+    // Book Interactions
     trackBook,
+    addUserBook,
+    finishBook,
+
+    // Profile
     profileStats,
     loadProfile,
     updateProfile,
     fetchUserBooks,
     fetchUserActivity,
-    finishBook,
-    addUserBook
   };
 
   return (
@@ -537,10 +628,10 @@ export const AppProvider = ({ children }) => {
         onConfirm={confirmLogout}
         onCancel={cancelLogout}
       />
-      <ToastContainer 
-        position="top-right" 
-        autoClose={2500} 
-        theme="dark" 
+      <ToastContainer
+        position="top-right"
+        autoClose={2500}
+        theme="dark"
         limit={4}
         newestOnTop
         pauseOnHover
