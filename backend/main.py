@@ -2,8 +2,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import warnings
 from contextlib import asynccontextmanager
+import os
 
-# Silenciar advertencias de FutureWarning de transformers
+# Silenciar advertencias
 warnings.filterwarnings("ignore", category=FutureWarning, module="transformers.tokenization_utils_base")
 from starlette.middleware.sessions import SessionMiddleware
 
@@ -25,6 +26,8 @@ async def lifespan(app: FastAPI):
     print("=" * 50)
     print("🚀 LitScholar API starting...")
     print(f"📊 Environment: {settings.ENVIRONMENT}")
+    print(f"🌐 CORS Origins: {settings.cors_origins_list}")
+    print(f"🔌 Render detected: {settings.RENDER}")
     print("=" * 50)
     
     # Startup
@@ -50,32 +53,33 @@ app = FastAPI(
     description="Backend API for LitScholar - book recommendations & AI assistant",
     version="0.1.0",
     lifespan=lifespan,
-    docs_url="/docs",
-    redoc_url="/redoc",
-    openapi_url="/openapi.json",
+    docs_url="/docs" if not settings.is_production else "/docs",  # Keep docs accessible
+    redoc_url="/redoc" if not settings.is_production else "/redoc",
+    openapi_url="/openapi.json" if not settings.is_production else "/openapi.json",
 )
 
-# Session middleware (use secret from settings if available, otherwise fallback)
+# Session middleware - Updated for production
 app.add_middleware(
     SessionMiddleware,
-    secret_key=settings.SESSION_SECRET_KEY or 'AKxS4ffc9FtsVfzBwsVfzBwKxS4ffc9fc9FtsVfzBwsVfzB',
+    secret_key=settings.SESSION_SECRET_KEY,
     max_age=3600 * 24 * 7,  # 7 days
-    same_site="lax",
-    https_only=False,  # Set to True in production with HTTPS
+    same_site="lax" if not settings.is_production else "none",  # 'none' for cross-site in production
+    https_only=settings.is_production,  # True in production, False in development
+    domain=None,  # Let browser handle domain
 )
 
-# CORS middleware
+# CORS middleware - Updated to use cors_origins_list property
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,  # Use from settings
+    allow_origins=settings.cors_origins_list,  # Use the property that handles both string and list
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-    allow_headers=["Content-Type", "Authorization", "Accept", "X-Requested-With"],
+    allow_methods=["*"],
+    allow_headers=["*"],
     expose_headers=["*"],
-    max_age=600,  # Cache preflight requests for 10 minutes
+    max_age=600,
 )
 
-# Include all routers with proper prefixes
+# Include all routers
 app.include_router(auth_router, prefix="/auth", tags=["Authentication"])
 app.include_router(user_router, prefix="/users", tags=["Users"])
 app.include_router(book_router, prefix="/books", tags=["Books"])
@@ -105,19 +109,25 @@ async def health_check():
     return {
         "status": "healthy",
         "service": "LitScholar API",
+        "environment": settings.ENVIRONMENT,
         "timestamp": __import__('datetime').datetime.now().isoformat()
     }
 
-@app.get("/debug/config")
-async def debug_config():
-    """Debug endpoint to check configuration (only in development)"""
-    if settings.ENVIRONMENT != "development":
-        return {"error": "Debug endpoint only available in development"}
-    
-    return {
-        "environment": settings.ENVIRONMENT,
-        "cors_origins": settings.CORS_ORIGINS,
-        "database_configured": bool(settings.DB_URL_NEON),
-        "gemini_configured": bool(settings.GEMINI_API_KEY),
-        "google_auth_configured": bool(settings.GOOGLE_CLIENT_ID),
-    }
+# Debug endpoint - only in development
+if not settings.is_production:
+    @app.get("/debug/config")
+    async def debug_config():
+        """Debug endpoint to check configuration (only in development)"""
+        return {
+            "environment": settings.ENVIRONMENT,
+            "cors_origins": settings.cors_origins_list,
+            "database_configured": bool(settings.DB_URL_NEON),
+            "gemini_configured": bool(settings.GEMINI_API_KEY),
+            "render_detected": settings.RENDER,
+        }
+
+# For Render - bind to correct port
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=not settings.is_production)
