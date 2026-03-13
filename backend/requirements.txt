@@ -29,9 +29,10 @@ langchain-core==1.2.13
 # Embeddings & models
 transformers==4.44.0
 sentence-transformers==3.3.0
-#numpy==2.2.0
-torch==2.5.1  # Added for transformers
-torchvision==0.20.1  # Added for transformers
+torch==2.10.0               # Updated from 2.5.1 (version didn't exist)
+# torchvision==0.21.0       # Optionally pin, or remove and let it be handled
+
+
 
 # Tokenizers - pinned for pre-built wheels (avoids Rust compilation)
 tokenizers==0.19.1
