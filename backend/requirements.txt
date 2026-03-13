@@ -29,7 +29,7 @@ langchain-core==1.2.13
 # Embeddings & models
 transformers==4.44.0
 sentence-transformers==3.3.0
-numpy==2.2.0
+#numpy==2.2.0
 torch==2.5.1  # Added for transformers
 torchvision==0.20.1  # Added for transformers
 
