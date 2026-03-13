@@ -1,18 +1,18 @@
 # Core web/API – pinned where stable
 fastapi==0.129.0
 uvicorn[standard]==0.34.0
-pydantic>=2.7.0,<3.0.0                # FastAPI requires >=2.7
+pydantic>=2.7.0,<3.0.0
 
 # File & image handling
 python-multipart==0.0.20
-pillow==11.1.0
+pillow==12.1.1  # Updated from 11.1.0
 
-# Supabase client – use latest (fixes your invalid 2.2.28 pin)
+# Supabase client
 supabase==2.28.0
 
 # Database driver
 psycopg[binary]
-asyncpg==0.29.0                        # Added for async PostgreSQL connection
+asyncpg==0.29.0
 
 # Authentication & JWT
 python-jose[cryptography]==3.3.0
@@ -20,7 +20,7 @@ passlib[bcrypt]==1.7.4
 pyjwt>=2.10.1
 authlib==1.6.8
 
-# LangChain & related (your versions are ok, but consider upgrading later)
+# LangChain & related
 langchain==1.2.10
 langchain-community==0.4.1
 langchain-core==1.2.13
@@ -34,14 +34,12 @@ numpy==2.2.0
 requests==2.32.5
 python-dotenv==1.0.1
 
-# Vector store – 1.5.0 should work; bump if build fails
-chromadb==1.5.0                      # or ==1.5.1 / >=1.5.1 if needed
+# Vector store
+chromadb==1.5.0
+
+# Tokenizers - pinned for pre-built wheels
+tokenizers==0.19.1
 
 # Optional / commented out for now
 google-genai==1.64.0
 # ollama==0.6.1
-
-
-
-
-tokenizers==0.19.1
