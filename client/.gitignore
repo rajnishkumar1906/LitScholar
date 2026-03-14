@@ -37,3 +37,5 @@ Thumbs.db
 # Project specific
 backend/steps.txt
 backend/image_test_and_open.py
+
+data
