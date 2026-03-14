@@ -68,10 +68,16 @@ app.add_middleware(
     domain=None,  # Let browser handle domain
 )
 
-# CORS middleware - Updated to use cors_origins_list property
+# CORS middleware - ensure localhost is always allowed in development
+cors_origins = list(settings.cors_origins_list)
+if not settings.is_production:
+    dev_origin = "http://localhost:5173"
+    if dev_origin not in cors_origins:
+        cors_origins.append(dev_origin)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins_list,  # Use the property that handles both string and list
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

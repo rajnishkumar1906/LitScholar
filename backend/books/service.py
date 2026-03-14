@@ -76,6 +76,13 @@ class BookService:
             
             # Fetch book details
             books_data = await self.fetch_books_by_ids(similar_book_ids)
+
+            # If nothing came back from Neon (e.g. books table empty or IDs mismatch),
+            # fall back to popular so the user still sees something.
+            if not books_data:
+                print(f"⚠️ No book rows fetched for {source} IDs, using popular fallback")
+                return await self._get_popular_fallback(limit)
+
             books_data = await self._enrich_with_summaries(books_data)
             print(f"✅ Found {len(books_data)} {source} recommendations")
             
@@ -118,6 +125,13 @@ class BookService:
             
             # Fetch book details
             books_data = await self.fetch_books_by_ids(paginated_ids)
+
+            # If nothing came back from Neon, fall back to popular for this page
+            if not books_data:
+                print(f"⚠️ No book rows fetched for {source} page, using popular fallback")
+                page_index = offset // limit
+                return await self._get_popular_fallback(limit, offset=page_index * limit)
+
             books_data = await self._enrich_with_summaries(books_data)
             print(f"✅ Found {len(books_data)} {source} recommendations (page {offset//limit + 1})")
             
