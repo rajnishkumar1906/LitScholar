@@ -9,7 +9,8 @@ async def ask(payload: AssistantRequest):
     try:
         result = await assistant_service(
             question=payload.question,
-            top_k=payload.top_k
+            top_k=payload.top_k,
+            book_ids=payload.book_ids,
         )
 
         return AssistantResponse(

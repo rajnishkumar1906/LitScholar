@@ -279,7 +279,8 @@ Summary:"""
             )
             
             if existing:
-                return {"success": False, "message": f"Book already in {list_type} list"}
+                # Idempotent: treat "already present" as success
+                return {"success": True, "message": f"Book already in {list_type} list"}
             
             # Insert
             result = await self.db.fetchrow("""

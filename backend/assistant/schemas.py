@@ -5,6 +5,8 @@ from typing import List
 class AssistantRequest(BaseModel):
     question: str
     top_k: int = 5
+    # Optional: if provided, assistant must answer using ONLY these books
+    book_ids: List[str] | None = None
 
 
 class BookResponse(BaseModel):

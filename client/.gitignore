@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+backend/steps.txt
+backend/image_test_and_open.py
+

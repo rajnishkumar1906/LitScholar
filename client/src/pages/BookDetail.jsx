@@ -8,7 +8,6 @@ import {
 } from 'react-icons/fa';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
-import NotFound from './NotFound';
 import BookDataCard from '../components/BookDataCard';
 import { useApp } from '../context/AppContext';
 import { toast } from 'react-toastify';
@@ -27,6 +26,7 @@ export default function BookDetail() {
   } = useApp();
 
   const chatEndRef = useRef(null);
+  const hasFetched = useRef(false);        // ← prevents double-fetch in StrictMode
 
   const [book, setBook] = useState(location.state?.book || null);
   const [loading, setLoading] = useState(!location.state?.book);
@@ -43,20 +43,49 @@ export default function BookDetail() {
   useEffect(() => {
     if (!bookId) return;
 
+    // 1. Prevent duplicate fetch in StrictMode (development)
+    if (hasFetched.current) return;
+    hasFetched.current = true;
+
     const fetchBook = async () => {
       setLoading(true);
       setError('');
-      
+
+      // 2. Try to load from sessionStorage first (persists across refresh)
+      const cacheKey = `book_${bookId}`;
+      const cached = sessionStorage.getItem(cacheKey);
+      if (cached) {
+        try {
+          const bookData = JSON.parse(cached);
+          setBook(bookData);
+          setLoading(false);
+          // Still track the view (lightweight) and check finished status
+          await trackBook(bookId);
+          await checkIfFinished(bookId);
+          setChatHistory([
+            {
+              id: 'welcome',
+              type: 'ai',
+              message: `Hello! I'm your AI Librarian. Ask me anything about "${bookData.title}" by ${bookData.author}. I can provide summaries, discuss themes, suggest similar books, and more!`,
+              timestamp: new Date().toISOString()
+            }
+          ]);
+          return; // ✅ Exit early – no API call
+        } catch (e) {
+          // If cache is corrupted, ignore and fetch fresh
+          console.warn('Failed to parse cached book', e);
+        }
+      }
+
+      // 3. No cache or invalid – fetch from API
       try {
         const result = await getBookById(bookId);
         if (result.success) {
           setBook(result.book);
-          // Track the book view
+          // Store in sessionStorage for future visits/refresh
+          sessionStorage.setItem(cacheKey, JSON.stringify(result.book));
           await trackBook(bookId);
-          // Check if already finished
           await checkIfFinished(bookId);
-          
-          // Add welcome message from AI
           setChatHistory([
             {
               id: 'welcome',
@@ -207,36 +236,44 @@ export default function BookDetail() {
   // Loading state
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-amber-50 via-white to-stone-50">
-        <div className="bg-white/95 backdrop-blur-sm shadow-xl p-8 rounded-3xl border border-gray-200">
-          <div className="w-16 h-16 border-4 border-amber-200 border-t-amber-800 rounded-full animate-spin"></div>
-          <p className="mt-4 text-gray-600">Loading book details...</p>
-        </div>
+      <div className="min-h-screen flex flex-col relative">
+        <Navbar />
+        <main className="flex-1 flex items-center justify-center px-4 sm:px-6 lg:px-8 py-8 w-full">
+          <div className="bg-white/90 backdrop-blur-sm shadow-xl p-8 rounded-3xl border border-gray-200">
+            <div className="w-16 h-16 border-4 border-amber-200 border-t-amber-800 rounded-full animate-spin"></div>
+            <p className="mt-4 text-gray-600">Loading book details...</p>
+          </div>
+        </main>
+        <Footer />
       </div>
     );
   }
 
   if (error || !book) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-amber-50 via-white to-stone-50">
-        <div className="bg-white/95 backdrop-blur-sm shadow-xl p-8 rounded-3xl border border-gray-200 text-center">
-          <p className="text-red-600 mb-4">{error || 'Book not found'}</p>
-          <button
-            onClick={() => navigate('/dashboard')}
-            className="px-6 py-2 bg-amber-800 text-white rounded-lg hover:bg-amber-900"
-          >
-            Go to Dashboard
-          </button>
-        </div>
+      <div className="min-h-screen flex flex-col relative">
+        <Navbar />
+        <main className="flex-1 flex items-center justify-center px-4 sm:px-6 lg:px-8 py-8 w-full">
+          <div className="bg-white/90 backdrop-blur-sm shadow-xl p-8 rounded-3xl border border-gray-200 text-center">
+            <p className="text-red-600 mb-4">{error || 'Book not found'}</p>
+            <button
+              onClick={() => navigate('/dashboard')}
+              className="px-6 py-2 bg-amber-800 text-white rounded-lg hover:bg-amber-900"
+            >
+              Go to Dashboard
+            </button>
+          </div>
+        </main>
+        <Footer />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-amber-50 via-white to-stone-50">
+    <div className="min-h-screen flex flex-col relative">
       <Navbar />
 
-      <main className="flex-1 max-w-7xl mx-auto px-4 py-8 w-full">
+      <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
         {/* Back button and action buttons row */}
         <div className="flex justify-between items-center mb-6">
           <button
@@ -305,7 +342,7 @@ export default function BookDetail() {
           {/* Right Column - Chat History (40%) - Only visible when toggled */}
           {showFollowUp && (
             <div className="w-[40%] animate-slideIn">
-              <div className="bg-white/95 backdrop-blur-sm rounded-3xl shadow-xl border border-gray-200 flex flex-col h-[calc(100vh-12rem)] sticky top-4">
+              <div className="bg-white/10 backdrop-blur-sm rounded-3xl shadow-xl border border-gray-200 flex flex-col h-[calc(100vh-12rem)] sticky top-4">
                 
                 {/* Chat Header */}
                 <div className="p-4 border-b border-gray-200 flex justify-between items-center">
@@ -314,8 +351,8 @@ export default function BookDetail() {
                       <FaRobot className="w-4 h-4 text-white" />
                     </div>
                     <div>
-                      <h2 className="text-lg font-semibold text-gray-800">AI Librarian</h2>
-                      <p className="text-xs text-gray-500">Ask anything about this book</p>
+                      <h2 className="text-lg font-semibold text-white">AI Librarian</h2>
+                      <p className="text-xs text-white">Ask anything about this book</p>
                     </div>
                   </div>
                   {chatHistory.length > 1 && (
@@ -480,7 +517,7 @@ export default function BookDetail() {
 
         {/* You might also like section */}
         <div className="mt-12">
-          <h2 className="text-3xl font-bold text-gray-800 mb-6">You might also like</h2>
+          <h2 className="text-3xl font-bold text-white mb-6">You might also like</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[1, 2, 3, 4].map((i) => (
               <div

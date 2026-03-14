@@ -3,9 +3,14 @@ from typing import List, Optional
 import asyncpg
 
 from books.schemas import (
-    Book, RecommendedBook, RecommendedSectionsResponse, 
-    TrackBookResponse, UserBookCreate, UserBookResponse,
-    PaginatedResponse
+    Book,
+    RecommendedBook,
+    RecommendedSectionsResponse,
+    TrackBookResponse,
+    UserBookCreate,
+    UserBookResponse,
+    PaginatedResponse,
+    FinishBookRequest,
 )
 from books.service import BookService
 from core.db import get_async_db
@@ -226,6 +231,35 @@ async def get_user_books(
     except Exception as e:
         print(f"Error getting user books: {e}")
         return []
+
+
+@router.post("/finish")
+async def mark_book_finished(
+    payload: FinishBookRequest,
+    current_user: dict = Depends(get_current_user_with_db),
+    service: BookService = Depends(get_book_service),
+):
+    """
+    Mark a book as finished for the current user.
+    Idempotent: if it's already in the finished list, returns success.
+    """
+    try:
+      result = await service.add_user_book(
+          user_id=str(current_user["id"]),
+          book_id=payload.book_id,
+          list_type="finished",
+          rating=None,
+          notes=None,
+      )
+
+      # Treat "already finished" as success so the button doesn't error
+      if not result.get("success") and "already in finished" in result.get("message", "").lower():
+          return {"success": True, "message": "Book already marked as finished"}
+
+      return result
+    except Exception as e:
+      print(f"Error marking book as finished: {e}")
+      return {"success": False, "message": str(e)}
 
 # ============ DEBUG ENDPOINTS ============
 

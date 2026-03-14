@@ -70,6 +70,11 @@ class UserBookCreate(BaseModel):
     rating: Optional[int] = None
     notes: Optional[str] = None
 
+
+class FinishBookRequest(BaseModel):
+    """Request body for marking a book as finished"""
+    book_id: str
+
 class UserBookResponse(BaseModel):
     """Response for user's book list items"""
     id: int

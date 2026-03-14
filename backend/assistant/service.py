@@ -1,4 +1,4 @@
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 from retrieval.retriever import search_books
 from retrieval.neon_fetch import fetch_books_by_ids
@@ -25,7 +25,7 @@ def normalize_books(books: List[Dict]) -> List[Dict]:
     return normalized
 
 
-async def assistant_service(question: str, top_k: int):
+async def assistant_service(question: str, top_k: int, book_ids: Optional[List[str]] = None):
     """
     Main AI assistant pipeline
 
@@ -38,41 +38,62 @@ async def assistant_service(question: str, top_k: int):
 
     print(f"🔎 Assistant query: {question}")
 
-    # ---------- STEP 1: VECTOR SEARCH ----------
-    try:
-        results = search_books(question, top_k=top_k)
-    except Exception as e:
-        print(f"❌ Vector search failed: {e}")
-        return {
-            "answer": "Something went wrong while searching books.",
-            "books": []
-        }
+    # ---------- PATH A: EXPLICIT BOOK CONTEXT (BookDetail) ----------
+    if book_ids:
+        print(f"📚 Using explicit book_ids for context: {book_ids}")
+        try:
+            books = await fetch_books_by_ids(book_ids)
+        except Exception as e:
+            print(f"❌ Neon fetch failed for explicit book_ids: {e}")
+            return {
+                "answer": "I couldn't load details for this book.",
+                "books": []
+            }
 
-    if not results:
-        print("⚠️ No vector search results")
-        return {
-            "answer": "I couldn't find any books matching your query.",
-            "books": []
-        }
+        if not books:
+            print("⚠️ No books returned from database for explicit book_ids")
+            return {
+                "answer": "I couldn't retrieve details for this book.",
+                "books": []
+            }
 
-    # ---------- STEP 2: FETCH BOOKS ----------
-    book_ids = [r["book_id"] for r in results]
+    # ---------- PATH B: GLOBAL SEARCH (Dashboard search) ----------
+    else:
+        # 1. Vector search
+        try:
+            results = search_books(question, top_k=top_k)
+        except Exception as e:
+            print(f"❌ Vector search failed: {e}")
+            return {
+                "answer": "Something went wrong while searching books.",
+                "books": []
+            }
 
-    try:
-        books = await fetch_books_by_ids(book_ids)
-    except Exception as e:
-        print(f"❌ Neon fetch failed: {e}")
-        return {
-            "answer": "I found books but couldn't load their details.",
-            "books": []
-        }
+        if not results:
+            print("⚠️ No vector search results")
+            return {
+                "answer": "I couldn't find any books matching your query.",
+                "books": []
+            }
 
-    if not books:
-        print("⚠️ No books returned from database")
-        return {
-            "answer": "I couldn't retrieve book details from the database.",
-            "books": []
-        }
+        # 2. Fetch books by IDs from search
+        search_book_ids = [r["book_id"] for r in results]
+
+        try:
+            books = await fetch_books_by_ids(search_book_ids)
+        except Exception as e:
+            print(f"❌ Neon fetch failed: {e}")
+            return {
+                "answer": "I found books but couldn't load their details.",
+                "books": []
+            }
+
+        if not books:
+            print("⚠️ No books returned from database")
+            return {
+                "answer": "I couldn't retrieve book details from the database.",
+                "books": []
+            }
 
     books = normalize_books(books)
 

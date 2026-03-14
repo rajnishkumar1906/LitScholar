@@ -1,5 +1,5 @@
 // components/BookDataCard.jsx
-import { FaBook, FaStar, FaUser, FaLayerGroup, FaFileAlt, FaCalendar, FaBuilding, FaBarcode, FaRobot, FaBookOpen, FaChevronDown, FaChevronUp, FaSpinner } from 'react-icons/fa';
+import { FaBook, FaStar, FaUser, FaLayerGroup, FaFileAlt, FaCalendar, FaBuilding, FaBarcode, FaBookOpen, FaChevronDown, FaChevronUp, FaSpinner } from 'react-icons/fa';
 import { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 
@@ -226,13 +226,6 @@ const BookDataCard = ({ book, showFollowUp, setShowFollowUp }) => {
                   )}
                   {isGenerating ? 'Generating...' : (showSummary ? 'Hide Summary' : 'View Summary')}
                   {!isGenerating && (showSummary ? <FaChevronUp className="w-4 h-4" /> : <FaChevronDown className="w-4 h-4" />)}
-                </button>
-                <button
-                  onClick={() => setShowFollowUp(!showFollowUp)}
-                  className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-amber-800 to-amber-900 text-white font-medium rounded-xl hover:shadow-lg transition-all duration-300 transform hover:scale-105"
-                >
-                  <FaRobot className="w-5 h-5" />
-                  {showFollowUp ? 'Hide AI Librarian' : 'Ask AI Librarian'}
                 </button>
                 <button className="flex items-center gap-2 px-6 py-3 border border-gray-300 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition-all duration-300">
                   Add to Wishlist
