@@ -11,7 +11,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LOCAL_CHROMA_DIR = os.path.join(BASE_DIR, "chroma_store")
 
 # For production (Render) - use persistent path
-PROD_CHROMA_DIR = os.environ.get('CHROMA_PERSIST_DIR', '/opt/chroma_store')
+PROD_CHROMA_DIR = os.environ.get('CHROMA_PERSIST_DIR', '/tmp/chroma_store')
 
 # Decide which directory to use based on environment
 IS_PRODUCTION = os.environ.get('ENVIRONMENT') == 'production'

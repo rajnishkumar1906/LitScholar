@@ -22,7 +22,7 @@ def get_model():
         _model = SentenceTransformer(
             "all-mpnet-base-v2",
             device=device,
-            cache_folder=os.environ.get('MODEL_CACHE_DIR', None)  # Optional cache dir
+            cache_folder=os.environ.get('MODEL_CACHE_DIR', "/tmp/model_cache")  # Optional cache dir
         )
         
         # Optional: Use half precision for faster inference (if supported)
