@@ -30,7 +30,8 @@ langchain-core==1.2.13
 transformers==4.44.0
 sentence-transformers==3.3.0
 # torch==2.10.0
-torch==2.3.1
+# torch==2.3.1
+torch==2.9.1
 
 # Utils
 requests==2.32.5
