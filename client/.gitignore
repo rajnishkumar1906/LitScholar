@@ -7,22 +7,33 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Node
 node_modules
 dist
 dist-ssr
 *.local
 
-# Editor directories and files
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pytest_cache/
+
+# Virtual environments
+venv/
+.env
+.env.*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
 .vscode/*
 !.vscode/extensions.json
 .idea
-.DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
 
+# Project specific
 backend/steps.txt
 backend/image_test_and_open.py
-
