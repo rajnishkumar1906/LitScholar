@@ -71,7 +71,7 @@ app.add_middleware(
 # CORS middleware - ensure localhost is always allowed in development
 cors_origins = list(settings.cors_origins_list)
 if not settings.is_production:
-    dev_origin = "http://localhost:5173"
+    dev_origin = "https://lit-scholar.vercel.app/"
     if dev_origin not in cors_origins:
         cors_origins.append(dev_origin)
 
