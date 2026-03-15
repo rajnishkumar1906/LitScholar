@@ -1,3 +1,6 @@
+# PIN NUMPY FIRST - CRITICAL FIX
+numpy<2.0.0
+
 # Core API
 fastapi==0.129.0
 uvicorn[standard]==0.34.0
