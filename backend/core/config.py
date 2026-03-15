@@ -23,6 +23,10 @@ class Settings(BaseSettings):
     CORS_ORIGINS: str | List[str] = [
         "http://localhost:5173",
         "http://127.0.0.1:5173",
+<<<<<<< HEAD
+=======
+        "http://localhost:3000",
+>>>>>>> 709d05b (Fix cookies for production)
         "https://lit-scholar.vercel.app/"
     ]
 

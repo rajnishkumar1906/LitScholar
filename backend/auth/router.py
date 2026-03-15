@@ -53,13 +53,13 @@ async def login(
         )
         db.commit()
 
-    # Set cookies
+    # 🔥 FIXED: Production cookie settings
     response.set_cookie(
         key="access_token",
         value=access_token,
         httponly=True,
-        secure=False,
-        samesite="lax",
+        secure=True,           # Changed from False to True
+        samesite="none",       # Changed from "lax" to "none"
         max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         path="/",
     )
@@ -68,8 +68,8 @@ async def login(
         key="refresh_token",
         value=refresh_token,
         httponly=True,
-        secure=False,
-        samesite="lax",
+        secure=True,           # Changed from False to True
+        samesite="none",       # Changed from "lax" to "none"
         max_age=7 * 24 * 60 * 60,
         path="/",
     )
@@ -116,13 +116,13 @@ async def register(
         )
         db.commit()
 
-    # Set cookies
+    # 🔥 FIXED: Production cookie settings
     response.set_cookie(
         key="access_token",
         value=access_token,
         httponly=True,
-        secure=False,
-        samesite="lax",
+        secure=True,           # Changed from False to True
+        samesite="none",       # Changed from "lax" to "none"
         max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         path="/",
     )
@@ -131,8 +131,8 @@ async def register(
         key="refresh_token",
         value=refresh_token,
         httponly=True,
-        secure=False,
-        samesite="lax",
+        secure=True,           # Changed from False to True
+        samesite="none",       # Changed from "lax" to "none"
         max_age=7 * 24 * 60 * 60,
         path="/",
     )
@@ -168,12 +168,13 @@ async def refresh(
     email = row[0]
     new_access_token = create_access_token({"sub": email})
 
+    # 🔥 FIXED: Production cookie settings
     response.set_cookie(
         key="access_token",
         value=new_access_token,
         httponly=True,
-        secure=False,
-        samesite="lax",
+        secure=True,           # Changed from False to True
+        samesite="none",       # Changed from "lax" to "none"
         max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         path="/",
     )
@@ -254,13 +255,13 @@ async def google_callback(
             )
             db.commit()
 
-        # Set cookies
+        # 🔥 FIXED: Production cookie settings
         response.set_cookie(
             key="access_token",
             value=access_token,
             httponly=True,
-            secure=False,
-            samesite="lax",
+            secure=True,           # Changed from False to True
+            samesite="none",       # Changed from "lax" to "none"
             max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
             path="/",
         )
@@ -269,8 +270,8 @@ async def google_callback(
             key="refresh_token",
             value=refresh_token,
             httponly=True,
-            secure=False,
-            samesite="lax",
+            secure=True,           # Changed from False to True
+            samesite="none",       # Changed from "lax" to "none"
             max_age=7 * 24 * 60 * 60,
             path="/",
         )
