@@ -24,10 +24,11 @@ class Settings(BaseSettings):
         "http://localhost:5173",
         "http://127.0.0.1:5173",
         "http://localhost:3000",
+        "https://lit-scholar.vercel.app/"
     ]
 
     # Frontend
-    FRONTEND_URL: str = "http://localhost:5173"
+    FRONTEND_URL: str = "https://lit-scholar.vercel.app/"
 
     # API Keys
     GEMINI_API_KEY: str = ""
