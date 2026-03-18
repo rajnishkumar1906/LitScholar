@@ -2,6 +2,7 @@
 import { Link } from 'react-router-dom';
 import { FaSignOutAlt, FaUser, FaBell } from 'react-icons/fa';
 import LitScholarLogo from '../components/LitScholarLogo';
+import UpgradeButton from './UpgradeButton';
 import { useApp } from '../context/AppContext';
 
 export default function Navbar() {
@@ -14,12 +15,14 @@ export default function Navbar() {
           <div className="p-2 bg-gradient-to-r from-amber-800 to-amber-900 rounded-xl">
             <LitScholarLogo className="w-6 h-6 text-white" />
           </div>
-          <span className="text-xl font-bold text-white bg-clip-text text-transparent">
-            LibrX
+          <span className="text-xl font-bold text-gray-900 tracking-tight">
+            LitScholar
           </span>
         </Link>
 
         <div className="flex items-center gap-3">
+          <UpgradeButton />
+          
           <button className="p-2.5 hover:bg-gray-100/80 rounded-xl transition-colors">
             <FaBell className="w-4 h-4 text-gray-900" />
           </button>

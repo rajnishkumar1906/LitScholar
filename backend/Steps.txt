@@ -1,4 +1,0 @@
-1️⃣ Clean the dataset (locally)
-2️⃣ Store the cleaned dataset in Supabase
-3️⃣ Generate embeddings from Supabase data
-4️⃣ Store embeddings in Chroma (id = book_id)

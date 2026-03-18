@@ -4,18 +4,7 @@ import { useApp } from '../context/AppContext';
 
 // Tiny Book Tile for search results (even smaller, no image)
 function TinyBookTile({ book, onClick }) {
-  const getGenreDisplay = () => {
-    if (book.genres) {
-      if (typeof book.genres === 'string') {
-        const genreList = book.genres.split(',').map(g => g.trim());
-        return genreList.length > 0 ? genreList[0] : 'General';
-      }
-      if (Array.isArray(book.genres) && book.genres.length > 0) {
-        return book.genres[0];
-      }
-    }
-    return book.genre || book.category || 'General';
-  };
+  const category = book.category || 'General';
 
   return (
     <div
@@ -28,7 +17,7 @@ function TinyBookTile({ book, onClick }) {
         </h3>
         <p className="text-[10px] text-gray-600 mb-1 truncate">{book.author}</p>
         <span className="text-[8px] px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded-full font-medium">
-          {getGenreDisplay()}
+          {category}
         </span>
       </div>
     </div>

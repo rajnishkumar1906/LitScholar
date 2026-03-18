@@ -105,6 +105,9 @@ const BookDataCard = ({ book, showFollowUp, setShowFollowUp }) => {
     }
   `;
 
+  const imageUrl = book.image_url || book.cover_image_url;
+  const title = book.title || book.book_title;
+
   return (
     <>
       <style>{animationStyle}</style>
@@ -115,10 +118,10 @@ const BookDataCard = ({ book, showFollowUp, setShowFollowUp }) => {
             {/* Book Cover */}
             <div className="md:col-span-1">
               <div className="bg-gradient-to-br from-amber-100 to-amber-200 rounded-2xl overflow-hidden shadow-lg aspect-[2/3] flex items-center justify-center">
-                {book.image_url ? (
+                {imageUrl ? (
                   <img 
-                    src={book.image_url} 
-                    alt={book.title} 
+                    src={imageUrl} 
+                    alt={title} 
                     className="w-full h-full object-cover hover:scale-105 transition-transform duration-500"
                     onError={(e) => {
                       e.target.onerror = null;
@@ -144,7 +147,7 @@ const BookDataCard = ({ book, showFollowUp, setShowFollowUp }) => {
                 )}
               </div>
 
-              <h1 className="text-4xl font-bold text-gray-900 mb-2">{book.title}</h1>
+              <h1 className="text-4xl font-bold text-gray-900 mb-2">{title}</h1>
               <p className="text-xl text-gray-600 mb-6">by {book.author}</p>
 
               {/* Genres - Clean display without symbols */}

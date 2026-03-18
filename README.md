@@ -1,247 +1,131 @@
-# 📚 LitScholar – AI‑Powered Virtual Librarian
+# 📚 LitScholar – AI-Powered Virtual Librarian
 
-LitScholar is a smart, conversational virtual librarian designed to help readers, researchers, and students discover books using natural language. Instead of keyword‑only search, LitScholar reasons semantically, explains *why* a book is relevant, and backs up its answers with citations.
-
-This version uses **Neon PostgreSQL** as the primary database and is built with a privacy‑aware, offline‑first mindset.
+LitScholar is a modern, full-stack microservices application that transforms book discovery into a conversational experience. Using **Retrieval-Augmented Generation (RAG)** and **Semantic Search**, it allows users to find books using natural language, receive AI-driven explanations for recommendations, and manage their personal reading journey.
 
 ---
 
-## ✨ What LitScholar Can Do
+## 🚀 Key Features
 
-### Core Capabilities
+- **Conversational Discovery**: Ask "I want a book like Interstellar but with more focus on biology" and get reasoned results.
+- **Semantic Search**: Powered by `sentence-transformers` and `ChromaDB` for deep contextual relevance.
+- **Microservices Architecture**: Four decoupled backend services (Auth, RAG, Email, Payment) for maximum scalability.
+- **Personalized Dashboard**: "For You" recommendations based on your viewing history and preferences.
+- **Reading Progress Tracking**: Mark books as finished, track your yearly goals, and view your reading streaks.
+- **Premium Tier**: Mock subscription system to unlock advanced AI librarian features.
 
-* **Natural Language Discovery** – Ask for books the same way you’d ask a real librarian
-* **Semantic Search** – Vector‑based retrieval for deeper relevance
-* **Explainable Recommendations** – Human‑like reasoning with citations
-* **Follow‑up Conversations** – Drill deeper into authors, themes, or editions
-* **Secure Accounts** – Email/password auth and Google OAuth
+---
 
-### Technical Highlights
+## 🛠️ Tech Stack
 
-* **Offline‑First Design** – Local inference support for privacy
-* **Vector Embeddings** – SentenceTransformers with ChromaDB
-* **Citation‑Aware Responses** – Every claim links back to a source book
-* **Modern UI** – Responsive amber/brown themed interface
+### **Frontend**
+- **Framework**: React (Vite)
+- **Styling**: Tailwind CSS (Glassmorphism & Premium Amber Theme)
+- **State Management**: React Context API (Global App State)
+- **Networking**: Axios with interceptors for cross-service auth.
+
+### **Backend (Microservices)**
+- **API Framework**: FastAPI (Python 3.13+)
+- **Database (Relational)**: Neon PostgreSQL (Serverless)
+- **Database (Vector)**: ChromaDB (Local/Server-side)
+- **Async Driver**: `asyncpg` for non-blocking database operations.
+- **LLM Engine**: Google Gemini API
+- **Embeddings**: HuggingFace `all-MiniLM-L6-v2`
+- **Auth**: JWT (JSON Web Tokens) with `HttpOnly` cookies.
 
 ---
 
 ## 🧱 System Architecture
 
-### Frontend
+```mermaid
+graph TD
+    Client[React Frontend] --> Gateway[Auth Service :8000]
+    Client --> RAG[RAG Service :8001]
+    Client --> Email[Email Service :8002]
+    Client --> Payment[Payment Service :8003]
+    RAG --> Chroma[(ChromaDB)]
+    RAG --> Neon[(Neon PostgreSQL)]
+    Auth --> Neon
+    Email --> Neon
+    Payment --> Neon
+```
 
-**Stack:** React + Vite + Tailwind CSS
-
-* Pages: Authentication, Dashboard, Book Details, Profile, 404
-* Components: Navbar, Footer, Search Bar, Book Cards, Logo
-* Global State: Context API
-* Styling: Tailwind with a warm library‑inspired color palette
-
-### Backend
-
-**Stack:** FastAPI + Neon PostgreSQL
-
-* Authentication: JWT + Google OAuth
-* Database: **Neon PostgreSQL** for book metadata and users
-* Vector Store: ChromaDB for semantic retrieval
-* LLMs: Google Gemini (cloud) + Ollama (local)
-* Embeddings: SentenceTransformers (`all-mpnet-base-v2`)
+### Service Breakdown:
+1.  **[Auth Service](file:///auth-service)**: Manages users, JWT tokens, and profiles.
+2.  **[RAG Service](file:///rag-service)**: The "brain" — handles AI chat, book search, and vector embeddings.
+3.  **[Email Service](file:///email-service)**: Handles transactional emails like welcome messages and logs.
+4.  **[Payment Service](file:///payment-service)**: Manages mock subscriptions and plan statuses.
 
 ---
 
-## 📁 Project Layout
+## ⚙️ Setup & Installation
 
-```
-litscholar/
-├── frontend/
-│   ├── public/
-│   │   └── litscholar-icon.svg
-│   └── src/
-│       ├── components/
-│       ├── context/
-│       ├── pages/
-│       ├── services/
-│       ├── App.jsx
-│       ├── main.jsx
-│       └── index.css
-│
-└── backend/
-    ├── assistant/
-    ├── auth/
-    ├── books/
-    ├── core/
-    ├── data/
-    ├── llm/
-    ├── retrieval/
-    ├── scripts/
-    ├── users/
-    ├── utils/
-    ├── chroma_store/
-    ├── main.py
-    ├── requirements.txt
-    └── .env
+### 1. Prerequisites
+- Python 3.11+
+- Node.js 18+
+- Neon DB Connection String
+- Gemini API Key
+
+### 2. Environment Variables
+Create a `.env` file in the root directory:
+
+```env
+# Relational DB
+DB_URL_NEON=postgresql://user:pass@host/db?sslmode=require
+
+# AI & Search
+GEMINI_API_KEY=your_gemini_key
+JWT_SECRET=your_jwt_secret
+SESSION_SECRET_KEY=your_session_key
+
+# Service URLs
+ENVIRONMENT=development
+CORS_ORIGINS=http://localhost:5173
 ```
 
----
-
-## ⚙️ Installation (Conda‑Based Setup)
-
-### Frontend
+### 3. Run the Backend
+You need to start all four services. It is recommended to use virtual environments:
 
 ```bash
-cd frontend
+# In 4 separate terminals:
+cd auth-service && python run.py
+cd rag-service && python run.py
+cd email-service && python run.py
+cd payment-service && python run.py
+```
+
+### 4. Run the Frontend
+```bash
+cd client
 npm install
 npm run dev
 ```
 
-### Backend
-
+### 5. Data Ingestion (Initial Setup)
+To populate the database and generate embeddings:
 ```bash
-cd backend
-
-conda create -n litscholar python=3.10 -y
-conda activate litscholar
-pip install -r requirements.txt
+python -m data_processing.run_pipeline
 ```
 
 ---
 
-## 🔐 Environment Variables
+## 📁 Project Structure
 
-Create a `.env` file inside `backend/`:
-
-```env
-# Neon PostgreSQL
-DATABASE_URL=postgresql://<user>:<password>@<neon-host>/<db>?sslmode=require
-
-# JWT
-JWT_SECRET=change_this_secret
-JWT_ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=60
-REFRESH_TOKEN_EXPIRE_DAYS=7
-
-# OAuth
-SESSION_SECRET_KEY=change_this_session_secret
-GOOGLE_CLIENT_ID=your_google_client_id
-GOOGLE_CLIENT_SECRET=your_google_client_secret
-GOOGLE_REDIRECT_URI=http://localhost:8000/auth/google/callback
-
-# Frontend
-FRONTEND_URL=http://localhost:5173
-
-# LLM APIs
-GEMINI_API_KEY=your_gemini_api_key
-
-# CORS
-CORS_ORIGINS=["http://localhost:5173","http://127.0.0.1:5173"]
-
-# App Mode
-ENVIRONMENT=development
+```
+LitScholar/
+├── client/             # Vite + React Frontend
+├── auth-service/       # JWT, Profiles, User Management
+├── rag-service/        # AI Librarian, ChromaDB, Gemini RAG
+├── email-service/      # Background Email Notifications
+├── payment-service/    # Subscriptions & Premium Plans
+├── data_processing/    # CSV Cleaning & Embedding Scripts
+└── data/               # Raw datasets (book_raw.csv)
 ```
 
 ---
 
-## ▶️ Running the App
+## 🛡️ License & Acknowledgements
+- **License**: MIT
+- **Inspiration**: Built for book lovers who want a smarter way to browse.
+- **Author**: Rajnish Kumar (@rajnishk71249)
 
-### Backend Server
-
-```bash
-cd backend
-conda activate litscholar
-uvicorn main:app --reload --port 8000
-```
-
-### Frontend Server
-
-```bash
-cd frontend
-npm run dev
-```
-
-Open your browser at **[http://localhost:5173](http://localhost:5173)** 📖
-
----
-
-## 🧬 Data Ingestion Pipeline
-
-Populate Neon and ChromaDB with book data:
-
-```bash
-cd backend
-conda activate litscholar
-python scripts/run_pipeline.py
-```
-
-### Pipeline Stages
-
-1. CSV Cleaning & Validation
-2. Insert Books into Neon PostgreSQL
-3. Generate & Persist Vector Embeddings
-
-Run steps individually if needed:
-
-```bash
-python scripts/clean_books_csv.py
-python scripts/insert_cleaned_books.py
-python scripts/build_chroma_embeddings.py
-```
-
----
-
-## 🔌 API Overview
-
-### Auth
-
-* POST `/auth/login`
-* POST `/auth/register`
-* POST `/auth/refresh`
-* GET `/auth/google/login`
-* GET `/auth/google/callback`
-
-### Books
-
-* GET `/books/search?q=`
-* GET `/books/{id}`
-
-### AI Librarian
-
-* POST `/assistant/ask`
-
-### Users
-
-* GET `/users/me`
-
----
-
-## 🧪 Testing Utilities
-
-```bash
-python retrieval/test_retriever.py
-python scripts/image_test_and_open.py
-```
-
----
-
-## 🧠 Conda Reference
-
-```bash
-conda activate litscholar
-conda deactivate
-conda env list
-conda env remove -n litscholar
-conda env export > environment.yml
-conda env create -f environment.yml
-```
-
----
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a new branch
-3. Commit your changes
-4. Push to GitHub
-5. Open a Pull Request
-
----
-
-Built with ❤️ by **Rajnish Kumar**
+© 2026 LitScholar - Modern AI Librarian.

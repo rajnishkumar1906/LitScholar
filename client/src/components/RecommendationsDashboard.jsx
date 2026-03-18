@@ -5,6 +5,12 @@ import { MagnifyingGlassIcon, XMarkIcon } from '@heroicons/react/24/outline';
 
 export default function RecommendationDashboard({ onBookClick }) {
   const {
+    forYouBooks,
+    popularBooks,
+    genreBooks,
+    similarBooks,
+    similarHasMore,
+    similarPage,
     fetchForYouBooks,
     fetchPopularBooks,
     fetchGenreBooks,
@@ -13,19 +19,8 @@ export default function RecommendationDashboard({ onBookClick }) {
     user
   } = useApp();
 
-  // Refs for caching and initial mount tracking
-  const isInitialMount = useRef(true);
-  const forYouCacheRef = useRef({ data: null, timestamp: null });
-  const popularCacheRef = useRef({ data: null, timestamp: null });
-  const genreCacheRef = useRef({ data: null, timestamp: null });
-  const similarCacheRef = useRef({ pages: {} });
-
   // State
   const [activeFilter, setActiveFilter] = useState('for-you');
-  const [forYouBooks, setForYouBooks] = useState([]);
-  const [popularBooks, setPopularBooks] = useState([]);
-  const [genreBooks, setGenreBooks] = useState([]);
-  const [similarBooks, setSimilarBooks] = useState([]);
   
   // Loading states
   const [loading, setLoading] = useState({
@@ -44,11 +39,6 @@ export default function RecommendationDashboard({ onBookClick }) {
     similar: ''
   });
 
-  // Similar pagination
-  const [similarPage, setSimilarPage] = useState(1);
-  const [similarHasMore, setSimilarHasMore] = useState(true);
-  const [totalSimilarBooks, setTotalSimilarBooks] = useState(0);
-
   // Search
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredBooks, setFilteredBooks] = useState([]);
@@ -57,25 +47,15 @@ export default function RecommendationDashboard({ onBookClick }) {
   // ============ LOAD FUNCTIONS ============
 
   const loadForYouBooks = useCallback(async (forceRefresh = false) => {
-    // Check cache
-    if (!forceRefresh && forYouCacheRef.current.data) {
-      const cacheAge = Date.now() - forYouCacheRef.current.timestamp;
-      if (cacheAge < 5 * 60 * 1000) {
-        setForYouBooks(forYouCacheRef.current.data);
-        return;
-      }
-    }
-
+    if (!user) return;
+    
+    // AppContext now handles the cache check internally
     setLoading(prev => ({ ...prev, forYou: true }));
     setError(prev => ({ ...prev, forYou: '' }));
 
     try {
-      const result = await fetchForYouBooks(8);
-      if (result?.success) {
-        const books = result.books || [];
-        setForYouBooks(books);
-        forYouCacheRef.current = { data: books, timestamp: Date.now() };
-      } else {
+      const result = await fetchForYouBooks(8, forceRefresh);
+      if (!result?.success) {
         setError(prev => ({ ...prev, forYou: result?.error || 'Failed to load' }));
       }
     } catch (err) {
@@ -83,27 +63,17 @@ export default function RecommendationDashboard({ onBookClick }) {
     } finally {
       setLoading(prev => ({ ...prev, forYou: false }));
     }
-  }, []); // Empty deps - fetchForYouBooks is stable from context
+  }, [user, fetchForYouBooks]);
 
   const loadPopularBooks = useCallback(async (forceRefresh = false) => {
-    if (!forceRefresh && popularCacheRef.current.data) {
-      const cacheAge = Date.now() - popularCacheRef.current.timestamp;
-      if (cacheAge < 5 * 60 * 1000) {
-        setPopularBooks(popularCacheRef.current.data);
-        return;
-      }
-    }
+    if (!user) return;
 
     setLoading(prev => ({ ...prev, popular: true }));
     setError(prev => ({ ...prev, popular: '' }));
 
     try {
-      const result = await fetchPopularBooks(8);
-      if (result?.success) {
-        const books = result.books || [];
-        setPopularBooks(books);
-        popularCacheRef.current = { data: books, timestamp: Date.now() };
-      } else {
+      const result = await fetchPopularBooks(8, forceRefresh);
+      if (!result?.success) {
         setError(prev => ({ ...prev, popular: result?.error || 'Failed to load' }));
       }
     } catch (err) {
@@ -111,27 +81,17 @@ export default function RecommendationDashboard({ onBookClick }) {
     } finally {
       setLoading(prev => ({ ...prev, popular: false }));
     }
-  }, []);
+  }, [user, fetchPopularBooks]);
 
   const loadGenreBooks = useCallback(async (forceRefresh = false) => {
-    if (!forceRefresh && genreCacheRef.current.data) {
-      const cacheAge = Date.now() - genreCacheRef.current.timestamp;
-      if (cacheAge < 5 * 60 * 1000) {
-        setGenreBooks(genreCacheRef.current.data);
-        return;
-      }
-    }
+    if (!user) return;
 
     setLoading(prev => ({ ...prev, genre: true }));
     setError(prev => ({ ...prev, genre: '' }));
 
     try {
-      const result = await fetchGenreBooks(4);
-      if (result?.success) {
-        const books = result.books || [];
-        setGenreBooks(books);
-        genreCacheRef.current = { data: books, timestamp: Date.now() };
-      } else {
+      const result = await fetchGenreBooks(4, forceRefresh);
+      if (!result?.success) {
         setError(prev => ({ ...prev, genre: result?.error || 'Failed to load' }));
       }
     } catch (err) {
@@ -139,98 +99,35 @@ export default function RecommendationDashboard({ onBookClick }) {
     } finally {
       setLoading(prev => ({ ...prev, genre: false }));
     }
-  }, []);
+  }, [user, fetchGenreBooks]);
 
   const loadSimilarBooks = useCallback(async (page = 1, forceRefresh = false) => {
-    const cacheKey = `page-${page}`;
-    const limit = 8;
-
-    // Check cache
-    if (!forceRefresh && similarCacheRef.current.pages[cacheKey]) {
-      const cached = similarCacheRef.current.pages[cacheKey];
-      const cacheAge = Date.now() - cached.timestamp;
-
-      if (cacheAge < 5 * 60 * 1000) {
-        console.log(`📦 Using cached similar books for page ${page}`);
-        if (page === 1) {
-          setSimilarBooks(cached.books);
-        } else {
-          setSimilarBooks(prev => [...prev, ...cached.books]);
-        }
-        setSimilarHasMore(cached.hasMore);
-        setTotalSimilarBooks(cached.total || 0);
-        return;
-      }
-    }
+    if (!user) return;
 
     if (page === 1) {
       setLoading(prev => ({ ...prev, similar: true }));
+      setError(prev => ({ ...prev, similar: '' }));
     } else {
       setLoading(prev => ({ ...prev, more: true }));
     }
-    setError(prev => ({ ...prev, similar: '' }));
 
     try {
-      console.log(`📡 Loading similar books - page ${page}, limit ${limit}`);
-      const result = await fetchSimilarBooks(page, limit);
-
-      if (result?.success) {
-        const books = result.books || [];
-        const hasMore = result.hasMore || false;
-        const total = result.total || books.length;
-
-        console.log(`✅ Loaded ${books.length} books for page ${page}, hasMore: ${hasMore}`);
-
-        if (page === 1) {
-          setSimilarBooks(books);
-        } else {
-          setSimilarBooks(prev => [...prev, ...books]);
-        }
-
-        setSimilarHasMore(hasMore);
-        setSimilarPage(page);
-        setTotalSimilarBooks(total);
-
-        // Update cache
-        similarCacheRef.current.pages[cacheKey] = {
-          books,
-          hasMore,
-          total,
-          timestamp: Date.now()
-        };
-      } else {
+      const result = await fetchSimilarBooks(page, 8, forceRefresh);
+      if (!result?.success && page === 1) {
         setError(prev => ({ ...prev, similar: result?.error || 'Failed to load' }));
       }
     } catch (err) {
-      console.error('Error loading similar books:', err);
-      setError(prev => ({ ...prev, similar: 'Failed to load' }));
+      if (page === 1) setError(prev => ({ ...prev, similar: 'Failed to load' }));
     } finally {
       setLoading(prev => ({ ...prev, similar: false, more: false }));
     }
-  }, []);
+  }, [user, fetchSimilarBooks]);
 
   // ============ EFFECTS ============
 
-  // Load data based on active filter
   useEffect(() => {
-    // Skip initial mount if we already have data
-    if (isInitialMount.current) {
-      isInitialMount.current = false;
+    if (!user) return;
 
-      // Only load if we have no data for the current filter
-      if (activeFilter === 'for-you' && forYouBooks.length === 0) {
-        loadForYouBooks();
-      } else if (activeFilter === 'popular' && popularBooks.length === 0) {
-        loadPopularBooks();
-      } else if (activeFilter === 'genre' && genreBooks.length === 0) {
-        loadGenreBooks();
-      } else if (activeFilter === 'similar' && similarBooks.length === 0) {
-        loadSimilarBooks(1);
-      }
-      return;
-    }
-
-    // For filter changes, always load
     if (activeFilter === 'for-you') {
       loadForYouBooks();
     } else if (activeFilter === 'popular') {
@@ -238,20 +135,15 @@ export default function RecommendationDashboard({ onBookClick }) {
     } else if (activeFilter === 'genre') {
       loadGenreBooks();
     } else if (activeFilter === 'similar') {
-      setSimilarPage(1);
-      setSimilarBooks([]);
-      setSimilarHasMore(true);
-      setTotalSimilarBooks(0);
-      loadSimilarBooks(1);
+      loadSimilarBooks(similarPage);
     }
-  }, [activeFilter]); // Only activeFilter triggers re-runs
+  }, [activeFilter, user, loadForYouBooks, loadPopularBooks, loadGenreBooks, loadSimilarBooks, similarPage]);
 
   // ============ HANDLERS ============
 
   const handleLoadMore = async () => {
-    if (loading.more || !similarHasMore) return;
-    const nextPage = similarPage + 1;
-    await loadSimilarBooks(nextPage);
+    if (loading.more || !similarHasMore || !user) return;
+    await loadSimilarBooks(similarPage + 1);
   };
 
   const handleFilterChange = (filter) => {
@@ -261,8 +153,10 @@ export default function RecommendationDashboard({ onBookClick }) {
   };
 
   const handleBookClick = async (book) => {
-    if (book?.book_id || book?.id) {
-      await trackBook(book.book_id || book.id);
+    if (!user) return;
+    const id = book.book_id || book.id;
+    if (id) {
+      await trackBook(id);
     }
     onBookClick(book);
   };
@@ -284,7 +178,7 @@ export default function RecommendationDashboard({ onBookClick }) {
 
     const query = searchQuery.toLowerCase();
     const filtered = booksToSearch.filter(book =>
-      book.title?.toLowerCase().includes(query) ||
+      (book.title || book.book_title)?.toLowerCase().includes(query) ||
       book.author?.toLowerCase().includes(query)
     );
 
@@ -299,6 +193,7 @@ export default function RecommendationDashboard({ onBookClick }) {
   };
 
   const refreshCurrentSection = () => {
+    if (!user) return;
     if (activeFilter === 'for-you') loadForYouBooks(true);
     else if (activeFilter === 'popular') loadPopularBooks(true);
     else if (activeFilter === 'genre') loadGenreBooks(true);
@@ -335,265 +230,238 @@ export default function RecommendationDashboard({ onBookClick }) {
   };
 
   return (
-    <div className="w-full space-y-6">
-      {/* Header with Refresh */}
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-white">Recommendations</h1>
-        <button
-          onClick={refreshCurrentSection}
-          className="px-3 py-1 bg-white/20 text-white rounded-lg hover:bg-white/30 transition"
-          disabled={getCurrentLoading()}
-        >
-          {getCurrentLoading() ? 'Loading...' : 'Refresh'}
-        </button>
-      </div>
+    <div className="space-y-8">
+      {/* Search and Filters Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="flex flex-wrap gap-2">
+          {Object.entries(filterTitles).map(([id, label]) => (
+            <button
+              key={id}
+              onClick={() => handleFilterChange(id)}
+              className={`px-6 py-2.5 rounded-2xl text-sm font-semibold transition-all duration-300 shadow-sm ${
+                activeFilter === id
+                  ? 'bg-gradient-to-r from-amber-800 to-amber-900 text-white shadow-md'
+                  : 'bg-white/80 text-gray-600 hover:bg-white hover:text-amber-900 border border-gray-100'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
 
-      {/* Search */}
-      <div className="bg-white/80 rounded-xl p-4">
-        <form onSubmit={handleSearch} className="flex gap-2">
-          <div className="relative flex-1">
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={`Search in ${filterTitles[activeFilter]}...`}
-              className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={clearSearch}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-              >
-                <XMarkIcon className="h-5 w-5" />
-              </button>
-            )}
-          </div>
+        <form onSubmit={handleSearch} className="relative group w-full md:w-80">
+          <input
+            type="text"
+            placeholder={`Search in ${filterTitles[activeFilter]}...`}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full bg-white/90 backdrop-blur-sm border border-gray-200 rounded-2xl py-3 px-5 pr-12 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all shadow-sm group-hover:shadow-md"
+          />
           <button
             type="submit"
-            className="px-6 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition disabled:opacity-50"
-            disabled={!searchQuery.trim()}
+            className="absolute right-3 top-1/2 -translate-y-1/2 p-2 text-gray-400 hover:text-amber-800 transition-colors"
           >
-            Search
+            <MagnifyingGlassIcon className="w-5 h-5" />
           </button>
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={clearSearch}
+              className="absolute right-10 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-red-500"
+            >
+              <XMarkIcon className="w-4 h-4" />
+            </button>
+          )}
         </form>
       </div>
 
-      {/* Filter Tabs */}
-      <div className="flex flex-wrap gap-2 border-b pb-4">
-        {Object.entries(filterTitles).map(([key, title]) => (
-          <button
-            key={key}
-            onClick={() => handleFilterChange(key)}
-            className={`px-4 py-2 rounded-lg transition ${
-              activeFilter === key
-                ? 'bg-amber-600 text-white'
-                : 'bg-white/20 text-white hover:bg-white/30'
-            }`}
-          >
-            {title}
-          </button>
-        ))}
-      </div>
+      {/* Main Content Area */}
+      <div className="relative min-h-[400px]">
+        {/* Loading Overlay */}
+        {getCurrentLoading() && (
+          <div className="absolute inset-0 flex items-center justify-center bg-transparent z-10">
+            <div className="flex flex-col items-center gap-4 bg-white/80 backdrop-blur-md p-8 rounded-3xl shadow-xl border border-white">
+              <div className="w-12 h-12 border-4 border-amber-200 border-t-amber-800 rounded-full animate-spin" />
+              <p className="text-amber-900 font-medium animate-pulse">Finding your next read...</p>
+            </div>
+          </div>
+        )}
 
-      {/* Loading State */}
-      {getCurrentLoading() && !showSearchResults && (
-        <div className="flex justify-center items-center py-16">
-          <div className="w-10 h-10 border-2 border-amber-200 border-t-amber-800 rounded-full animate-spin" />
-        </div>
-      )}
-
-      {/* Error State */}
-      {getCurrentError() && !showSearchResults && (
-        <div className="text-center py-12 bg-white/20 rounded-xl">
-          <p className="text-red-200">{getCurrentError()}</p>
-          <button
-            onClick={refreshCurrentSection}
-            className="mt-4 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700"
-          >
-            Try Again
-          </button>
-        </div>
-      )}
-
-      {/* Search Results */}
-      {showSearchResults ? (
-        <section className="bg-white/80 rounded-xl p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-2xl font-bold">
-              Search Results in {filterTitles[activeFilter]}
-            </h2>
+        {/* Error State */}
+        {getCurrentError() && (
+          <div className="flex flex-col items-center justify-center py-20 bg-red-50/50 backdrop-blur-sm rounded-3xl border border-red-100 text-center px-4">
+            <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mb-4">
+              <XMarkIcon className="w-8 h-8" />
+            </div>
+            <h3 className="text-xl font-bold text-red-900 mb-2">Oops! Something went wrong</h3>
+            <p className="text-red-700 max-w-md mx-auto mb-6">{getCurrentError()}</p>
             <button
-              onClick={clearSearch}
-              className="text-sm text-amber-600 hover:text-amber-800"
+              onClick={refreshCurrentSection}
+              className="px-8 py-3 bg-red-600 text-white font-bold rounded-2xl hover:bg-red-700 transition-all shadow-lg hover:shadow-red-200"
             >
-              Clear
+              Try Again
             </button>
           </div>
+        )}
 
-          {filteredBooks.length > 0 ? (
-            <>
-              <p className="text-gray-600 mb-4">
-                Found {filteredBooks.length} {filteredBooks.length === 1 ? 'book' : 'books'}
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {filteredBooks.map((book) => (
+        {/* Search Results */}
+        {showSearchResults ? (
+          <section className="bg-white/40 backdrop-blur-sm rounded-3xl p-8 border border-white shadow-sm">
+            <div className="flex items-center justify-between mb-8">
+              <div>
+                <h2 className="text-3xl font-bold text-gray-900">Search Results</h2>
+                <p className="text-gray-500 mt-1">Found in {filterTitles[activeFilter]}</p>
+              </div>
+              <button
+                onClick={clearSearch}
+                className="px-4 py-2 text-sm font-medium text-amber-900 hover:bg-amber-100 rounded-xl transition-colors"
+              >
+                Clear results
+              </button>
+            </div>
+
+            {filteredBooks.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {filteredBooks.map((book, idx) => (
                   <div
-                    key={book.book_id || book.id}
+                    key={book.id || book.book_id}
                     onClick={() => handleBookClick(book)}
-                    className="cursor-pointer transition-transform hover:-translate-y-1"
+                    className="cursor-pointer"
                   >
-                    <BookCard {...book} />
+                    <BookCard {...book} index={idx} />
                   </div>
                 ))}
               </div>
-            </>
-          ) : (
-            <p className="text-center py-8 text-gray-600">No books found</p>
-          )}
-        </section>
-      ) : (
-        /* Main Content */
-        !getCurrentLoading() && !getCurrentError() && (
-          <>
-            {/* For You Section */}
-            {activeFilter === 'for-you' && (
-              <>
-                {forYouBooks.length > 0 ? (
-                  <section>
-                    <h2 className="text-2xl font-bold text-white mb-4">For You</h2>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                      {forYouBooks.map((book) => (
-                        <div
-                          key={book.book_id || book.id}
-                          onClick={() => handleBookClick(book)}
-                          className="cursor-pointer transition-transform hover:-translate-y-1"
-                        >
-                          <BookCard {...book} />
+            ) : (
+              <div className="text-center py-20">
+                <p className="text-gray-500 text-lg">No books matching "{searchQuery}" in this section.</p>
+              </div>
+            )}
+          </section>
+        ) : (
+          /* Normal Sections */
+          !getCurrentLoading() && !getCurrentError() && (
+            <div className="space-y-12">
+              {/* For You */}
+              {activeFilter === 'for-you' && (
+                <section>
+                  <div className="flex items-center justify-between mb-8">
+                    <h2 className="text-3xl font-bold text-white drop-shadow-sm">Personalized For You</h2>
+                    <button onClick={() => loadForYouBooks(true)} className="text-sm text-white/80 hover:text-white underline underline-offset-4">Refresh</button>
+                  </div>
+                  {forYouBooks.length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                      {forYouBooks.map((book, idx) => (
+                        <div key={book.id || book.book_id} onClick={() => handleBookClick(book)} className="cursor-pointer">
+                          <BookCard {...book} index={idx} />
                         </div>
                       ))}
                     </div>
-                  </section>
-                ) : (
-                  <div className="text-center py-12 bg-white/20 rounded-xl">
-                    <p className="text-white/80">No personalized recommendations yet. Start exploring books!</p>
-                  </div>
-                )}
-              </>
-            )}
+                  ) : (
+                    <EmptyState message="No personalized recommendations yet. Explore more books!" />
+                  )}
+                </section>
+              )}
 
-            {/* Popular Section */}
-            {activeFilter === 'popular' && (
-              <>
-                {popularBooks.length > 0 ? (
-                  <section>
-                    <h2 className="text-2xl font-bold text-white mb-4">Popular Now</h2>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                      {popularBooks.map((book) => (
-                        <div
-                          key={book.book_id || book.id}
-                          onClick={() => handleBookClick(book)}
-                          className="cursor-pointer transition-transform hover:-translate-y-1"
-                        >
-                          <BookCard {...book} />
+              {/* Popular */}
+              {activeFilter === 'popular' && (
+                <section>
+                  <div className="flex items-center justify-between mb-8">
+                    <h2 className="text-3xl font-bold text-white drop-shadow-sm">Trending Now</h2>
+                    <button onClick={() => loadPopularBooks(true)} className="text-sm text-white/80 hover:text-white underline underline-offset-4">Refresh</button>
+                  </div>
+                  {popularBooks.length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                      {popularBooks.map((book, idx) => (
+                        <div key={book.id || book.book_id} onClick={() => handleBookClick(book)} className="cursor-pointer">
+                          <BookCard {...book} index={idx} />
                         </div>
                       ))}
                     </div>
-                  </section>
-                ) : (
-                  <div className="text-center py-12 bg-white/20 rounded-xl">
-                    <p className="text-white/80">No popular books found</p>
-                  </div>
-                )}
-              </>
-            )}
+                  ) : (
+                    <EmptyState message="No popular books found right now." />
+                  )}
+                </section>
+              )}
 
-            {/* Genre Sections */}
-            {activeFilter === 'genre' && (
-              <>
-                {genreBooks.length > 0 ? (
-                  <div className="space-y-8">
-                    {genreBooks.map((section) => (
+              {/* Genres */}
+              {activeFilter === 'genre' && (
+                <div className="space-y-16">
+                  {genreBooks.length > 0 ? (
+                    genreBooks.map((section) => (
                       <section key={section.genre}>
-                        <h2 className="text-xl font-bold text-white mb-3">{section.genre}</h2>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                          {section.books?.map((book) => (
-                            <div
-                              key={book.book_id || book.id}
-                              onClick={() => handleBookClick(book)}
-                              className="cursor-pointer transition-transform hover:-translate-y-1"
-                            >
-                              <BookCard {...book} />
+                        <h2 className="text-2xl font-bold text-white mb-6 drop-shadow-sm flex items-center gap-3">
+                          <span className="w-8 h-1 bg-amber-500 rounded-full" />
+                          {section.genre}
+                        </h2>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                          {section.books?.map((book, idx) => (
+                            <div key={book.id || book.book_id} onClick={() => handleBookClick(book)} className="cursor-pointer">
+                              <BookCard {...book} index={idx} />
                             </div>
                           ))}
                         </div>
                       </section>
-                    ))}
+                    ))
+                  ) : (
+                    <EmptyState message="No genre recommendations available." />
+                  )}
+                </div>
+              )}
+
+              {/* Similar */}
+              {activeFilter === 'similar' && (
+                <section>
+                  <div className="flex items-center justify-between mb-8">
+                    <h2 className="text-3xl font-bold text-white drop-shadow-sm">Similar Suggestions</h2>
+                    <button onClick={() => loadSimilarBooks(1, true)} className="text-sm text-white/80 hover:text-white underline underline-offset-4">Reset</button>
                   </div>
-                ) : (
-                  <div className="text-center py-12 bg-white/20 rounded-xl">
-                    <p className="text-white/80">No genre books found</p>
-                  </div>
-                )}
-              </>
-            )}
-
-            {/* Similar Section with Pagination */}
-            {activeFilter === 'similar' && (
-              <section>
-                <h2 className="text-2xl font-bold text-white mb-4">Similar Suggestions</h2>
-
-                {similarBooks.length > 0 ? (
-                  <>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                      {similarBooks.map((book) => (
-                        <div
-                          key={book.book_id || book.id}
-                          onClick={() => handleBookClick(book)}
-                          className="cursor-pointer transition-transform hover:-translate-y-1"
-                        >
-                          <BookCard {...book} />
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Load More Button */}
-                    {similarHasMore && (
-                      <div className="flex justify-center mt-8">
-                        <button
-                          onClick={handleLoadMore}
-                          disabled={loading.more}
-                          className="px-6 py-3 bg-white text-gray-700 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-                        >
-                          {loading.more ? (
-                            <span className="flex items-center gap-2">
-                              <div className="w-4 h-4 border-2 border-amber-200 border-t-amber-800 rounded-full animate-spin" />
-                              Loading...
-                            </span>
-                          ) : (
-                            'Load More Books'
-                          )}
-                        </button>
+                  {similarBooks.length > 0 ? (
+                    <>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                        {similarBooks.map((book, idx) => (
+                          <div key={book.id || book.book_id} onClick={() => handleBookClick(book)} className="cursor-pointer">
+                            <BookCard {...book} index={idx} />
+                          </div>
+                        ))}
                       </div>
-                    )}
+                      {similarHasMore && (
+                        <div className="flex justify-center mt-12">
+                          <button
+                            onClick={handleLoadMore}
+                            disabled={loading.more}
+                            className="px-10 py-4 bg-white/90 backdrop-blur-sm text-amber-900 font-bold rounded-2xl shadow-lg hover:shadow-xl hover:bg-white transition-all disabled:opacity-50 flex items-center gap-3 border border-amber-100"
+                          >
+                            {loading.more ? (
+                              <>
+                                <div className="w-5 h-5 border-2 border-amber-200 border-t-amber-800 rounded-full animate-spin" />
+                                Loading...
+                              </>
+                            ) : (
+                              'Show More Books'
+                            )}
+                          </button>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <EmptyState message="No similar suggestions found." />
+                  )}
+                </section>
+              )}
+            </div>
+          )
+        )}
+      </div>
+    </div>
+  );
+}
 
-                    {/* End of list message */}
-                    {!similarHasMore && similarBooks.length > 0 && (
-                      <p className="text-center text-white/60 mt-6">
-                        You've reached the end of the list ({similarBooks.length} books loaded)
-                      </p>
-                    )}
-                  </>
-                ) : (
-                  <div className="text-center py-12 bg-white/20 rounded-xl">
-                    <p className="text-white/80">No similar suggestions found</p>
-                  </div>
-                )}
-              </section>
-            )}
-          </>
-        )
-      )}
+function EmptyState({ message }) {
+  return (
+    <div className="text-center py-24 bg-white/10 backdrop-blur-md rounded-[2.5rem] border border-white/20 shadow-inner">
+      <div className="text-6xl mb-4">📚</div>
+      <p className="text-white text-lg font-medium">{message}</p>
     </div>
   );
 }

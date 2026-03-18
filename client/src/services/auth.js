@@ -1,11 +1,11 @@
 // src/services/auth.js - Authentication service
-import api from './api';
+import { authApi } from './api';
 import config from './config';
 import { tokenCookies } from '../utils/cookies';
 
 export const authService = {
   async login(email, password) {
-    const response = await api.post('/auth/login', { email, password });
+    const response = await authApi.post('/auth/login', { email, password });
     if (response.data.access_token) {
       tokenCookies.setTokens(
         response.data.access_token,
@@ -16,7 +16,7 @@ export const authService = {
   },
 
   async register(email, password) {
-    const response = await api.post('/auth/register', {
+    const response = await authApi.post('/auth/register', {
       email,
       password
     });
@@ -24,7 +24,7 @@ export const authService = {
   },
 
   googleLogin() {
-    window.location.href = `${config.API_URL}/auth/google/login`;
+    window.location.href = `${config.AUTH_API_URL}/auth/google/login`;
   },
 
   logout() {
@@ -51,7 +51,7 @@ export const authService = {
 
   async getCurrentUser() {
     try {
-      const response = await api.get('/users/me');
+      const response = await authApi.get('/users/me');
       return response.data;
     } catch (error) {
       return null;

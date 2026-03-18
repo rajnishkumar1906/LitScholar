@@ -1,17 +1,14 @@
 # ===============================
-# Environment variables (ALL LEVELS)
+# LitScholar - Global .gitignore
 # ===============================
+
+# --- Environment variables (CRITICAL) ---
 .env
 .env.*
-backend/.env
-backend/.env.*
-client/.env
-client/.env.*
-supabase/.env
+**/ .env
+**/ .env.*
 
-# ===============================
-# Python
-# ===============================
+# --- Python ---
 __pycache__/
 *.py[cod]
 *.pyo
@@ -22,86 +19,56 @@ __pycache__/
 venv/
 ENV/
 env/
+Lib/
+site-packages/
 
-# ===============================
-# Python tooling / cache
-# ===============================
+# --- Python tooling / cache ---
 build/
 dist/
 .pytest_cache/
 .mypy_cache/
 .coverage
 htmlcov/
+.cache/
 
-# ===============================
-# OS files
-# ===============================
+# --- OS files ---
 .DS_Store
 Thumbs.db
 desktop.ini
 *.swp
 *.swo
 
-# ===============================
-# Logs
-# ===============================
+# --- Logs ---
 *.log
 logs/
 
-# ===============================
-# Chroma / Vector DB (CRITICAL)
-# ===============================
-backend/chroma_store/
-backend/chroma_store_test/
-**/chroma.sqlite3
-**/index/
-
-# ===============================
-# ML / Model cache
-# ===============================
-.cache/
+# --- ML Models Cache (Keep these ignored) ---
 torch_cache/
 sentence_transformers/
 hf_cache/
 huggingface/
 
-# ===============================
-# OCR / temp files
-# ===============================
+# --- Frontend ---
+node_modules/
+dist/
+build/
+.next/
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# --- VS Code / IDE ---
+.vscode/
+.idea/
+.trae/
+
+# --- Local Data & Temp ---
+data/books_clean.csv
+data/temp/
 *.tmp
 *.tiff
 *.png~
 *.jpg~
 
-# ===============================
-# Frontend (React)
-# ===============================
-node_modules/
-dist/
-build/
-npm-debug.log*
-yarn-debug.log*
-pnpm-debug.log*
-
-# ===============================
-# VS Code / IDE
-# ===============================
-.vscode/
-.idea/
-
-# ===============================
-# Docker (future-proof)
-# ===============================
+# --- Docker ---
 docker-compose.override.yml
-
-# ===============================
-# Local temp data (NOT your main data!)
-# ===============================
-backend/data/temp/
-backend/data/*.tmp
-
-# ===============================
-# Databases
-# ===============================
-*.sqlite
-*.db

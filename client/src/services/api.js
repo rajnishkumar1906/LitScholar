@@ -1,60 +1,50 @@
-// src/services/api.js - API client with interceptors
+// src/services/api.js - API clients for microservices
 import axios from 'axios';
 import config from './config';
-import { tokenCookies } from '../utils/cookies';
 
-const api = axios.create({
-  baseURL: config.API_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
+const createInstance = (baseURL) => {
+  const instance = axios.create({
+    baseURL,
+    withCredentials: true,
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
 
-// Request interceptor to add auth token from cookie
-api.interceptors.request.use(
-  (config) => {
-    const token = tokenCookies.getAccessToken();
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
-
-// Response interceptor for token refresh
-api.interceptors.response.use(
-  (response) => response,
-  async (error) => {
-    const originalRequest = error.config;
-    
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true;
+  // Response interceptor for token refresh
+  instance.interceptors.response.use(
+    (response) => response,
+    async (error) => {
+      const originalRequest = error.config;
       
-      try {
-        const refreshToken = tokenCookies.getRefreshToken();
-        if (refreshToken) {
-          const response = await axios.post(`${config.API_URL}/auth/refresh`, {
-            refresh_token: refreshToken
+      if (error.response?.status === 401 && !originalRequest._retry) {
+        originalRequest._retry = true;
+        
+        try {
+          // Always refresh using the Auth service
+          // withCredentials: true ensures the refresh_token cookie is sent
+          await axios.post(`${config.AUTH_API_URL}/auth/refresh`, {}, {
+            withCredentials: true
           });
           
-          tokenCookies.setAccessToken(response.data.access_token);
-          if (response.data.refresh_token) {
-            tokenCookies.setRefreshToken(response.data.refresh_token);
-          }
-          api.defaults.headers.common['Authorization'] = `Bearer ${response.data.access_token}`;
-          originalRequest.headers['Authorization'] = `Bearer ${response.data.access_token}`;
-          
-          return api(originalRequest);
+          return instance(originalRequest);
+        } catch (refreshError) {
+          // If refresh fails, we can't do much here. 
+          // AppContext usually handles redirecting to login.
         }
-      } catch (refreshError) {
-        tokenCookies.clear();
-        window.location.href = '/';
       }
+      
+      return Promise.reject(error);
     }
-    
-    return Promise.reject(error);
-  }
-);
+  );
 
-export default api;
+  return instance;
+};
+
+export const authApi = createInstance(config.AUTH_API_URL);
+export const ragApi = createInstance(config.RAG_API_URL);
+export const emailApi = createInstance(config.EMAIL_API_URL);
+export const paymentApi = createInstance(config.PAYMENT_API_URL);
+
+// For backward compatibility, default export authApi
+export default authApi;
