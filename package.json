@@ -1,0 +1,10 @@
+{
+  "name": "litscholar",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "concurrently -n CLIENT,AUTH,RAG,EMAIL,PAYMENT -c cyan,green,yellow,magenta,blue \"cd client && npm run dev\" \"cd auth-service && conda run -n ai python run.py\" \"cd rag-service && conda run -n ai python run.py\" \"cd email-service && conda run -n ai python run.py\" \"cd payment-service && conda run -n ai python run.py\""
+  },
+  "devDependencies": {
+    "concurrently": "^8.0.0"
+  }
+}

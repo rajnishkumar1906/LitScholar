@@ -2,13 +2,13 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 import os
 
 class Settings(BaseSettings):
-    DB_URL_NEON: str = ""
+    DB_NEON_URL: str = ""
     ENVIRONMENT: str = "development"
     SMTP_SERVER: str = "smtp.mailtrap.io"
     SMTP_PORT: int = 2525
     SMTP_USERNAME: str = ""
     SMTP_PASSWORD: str = ""
-    SENDER_EMAIL: str = "noreply@litscholar.com"
+    SENDER_EMAIL: str = ""
     
     CORS_ORIGINS: str = "http://localhost:5173"
 

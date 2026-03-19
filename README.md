@@ -1,110 +1,216 @@
 # 📚 LitScholar – AI-Powered Virtual Librarian
 
-LitScholar is a modern, full-stack microservices application that transforms book discovery into a conversational experience. Using **Retrieval-Augmented Generation (RAG)** and **Semantic Search**, it allows users to find books using natural language, receive AI-driven explanations for recommendations, and manage their personal reading journey.
+LitScholar is a modern, full-stack microservices application that transforms book discovery into a conversational experience. Using **Retrieval-Augmented Generation (RAG)** and **Semantic Search**, it allows users to find books using natural language and receive AI-driven recommendations.
 
 ---
 
 ## 🚀 Key Features
 
-- **Conversational Discovery**: Ask "I want a book like Interstellar but with more focus on biology" and get reasoned results.
-- **Semantic Search**: Powered by `sentence-transformers` and `ChromaDB` for deep contextual relevance.
-- **Microservices Architecture**: Four decoupled backend services (Auth, RAG, Email, Payment) for maximum scalability.
-- **Personalized Dashboard**: "For You" recommendations based on your viewing history and preferences.
-- **Reading Progress Tracking**: Mark books as finished, track your yearly goals, and view your reading streaks.
-- **Premium Tier**: Mock subscription system to unlock advanced AI librarian features.
+- **Conversational Discovery**: Ask "I want a book like Interstellar but with more focus on biology" and get reasoned results with citations
+- **Semantic Search**: Powered by sentence-transformers and ChromaDB for deep contextual relevance
+- **Microservices Architecture**: Four decoupled backend services for maximum scalability
+- **Personalized Dashboard**: "For You" recommendations based on your viewing history
+- **Real Email Notifications**: Welcome emails, login alerts, and payment confirmations
+- **Premium Tier**: Razorpay integration for monthly/yearly/lifetime subscriptions
+- **AI Librarian Chat**: Context-aware conversations about books with follow-up questions
+- **Google OAuth**: Seamless authentication with Google accounts
 
 ---
 
 ## 🛠️ Tech Stack
 
 ### **Frontend**
-- **Framework**: React (Vite)
-- **Styling**: Tailwind CSS (Glassmorphism & Premium Amber Theme)
-- **State Management**: React Context API (Global App State)
-- **Networking**: Axios with interceptors for cross-service auth.
+- React 18 + Vite
+- Tailwind CSS with Glassmorphism
+- React Router v6
+- Axios with interceptors
+- React Toastify
 
-### **Backend (Microservices)**
-- **API Framework**: FastAPI (Python 3.13+)
-- **Database (Relational)**: Neon PostgreSQL (Serverless)
-- **Database (Vector)**: ChromaDB (Local/Server-side)
-- **Async Driver**: `asyncpg` for non-blocking database operations.
-- **LLM Engine**: Google Gemini API
-- **Embeddings**: HuggingFace `all-MiniLM-L6-v2`
-- **Auth**: JWT (JSON Web Tokens) with `HttpOnly` cookies.
+### **Backend**
+- FastAPI (Python 3.13+)
+- Neon PostgreSQL (Serverless)
+- ChromaDB (Vector Database)
+- Google Gemini API
+- JWT with HTTP-only cookies
+- Razorpay SDK
+- SMTP integration
 
 ---
 
-## 🧱 System Architecture
+## 🏗️ High-Level Architecture
 
-```mermaid
-graph TD
-    Client[React Frontend] --> Gateway[Auth Service :8000]
-    Client --> RAG[RAG Service :8001]
-    Client --> Email[Email Service :8002]
-    Client --> Payment[Payment Service :8003]
-    RAG --> Chroma[(ChromaDB)]
-    RAG --> Neon[(Neon PostgreSQL)]
-    Auth --> Neon
-    Email --> Neon
-    Payment --> Neon
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              CLIENT LAYER                                    │
+│                                                                             │
+│                       ┌─────────────────────────┐                          │
+│                       │     React Frontend      │                          │
+│                       │     (Port 5173)         │                          │
+│                       │  - Tailwind CSS         │                          │
+│                       │  - React Router         │                          │
+│                       │  - Axios interceptors   │                          │
+│                       └────────────┬────────────┘                          │
+│                                    │                                        │
+│                                    ▼                                        │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    │ HTTP/JSON
+                                    │
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                            MICROSERVICES LAYER                               │
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │                                                                     │   │
+│  │  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐          │   │
+│  │  │   Auth       │    │     RAG      │    │   Payment    │          │   │
+│  │  │   Service    │    │   Service    │    │   Service    │          │   │
+│  │  │   :8000      │    │   :8001      │    │   :8003      │          │   │
+│  │  │              │    │              │    │              │          │   │
+│  │  │ • JWT Auth   │    │ • Gemini AI  │    │ • Razorpay   │          │   │
+│  │  │ • Google OAuth│    │ • ChromaDB  │    │ • Subscriptions│          │   │
+│  │  │ • Users      │    │ • Semantic   │    │ • Plans      │          │   │
+│  │  │              │    │   Search     │    │              │          │   │
+│  │  └──────┬───────┘    └──────┬───────┘    └──────┬───────┘          │   │
+│  │         │                   │                   │                   │   │
+│  │         └───────────────────┼───────────────────┘                   │   │
+│  │                             │                                        │   │
+│  │                    ┌────────▼────────┐                              │   │
+│  │                    │   Email Service │                              │   │
+│  │                    │     :8002       │                              │   │
+│  │                    │                 │                              │   │
+│  │                    │  • SMTP         │                              │   │
+│  │                    │  • Templates    │                              │   │
+│  │                    │  • Notifications│                              │   │
+│  │                    └─────────────────┘                              │   │
+│  │                                                                     │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                    │                                        │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+            ┌───────────────────────┼───────────────────────┐
+            ▼                       ▼                       ▼
+┌─────────────────────┐  ┌─────────────────────┐  ┌─────────────────────┐
+│   EXTERNAL          │  │   EXTERNAL          │  │   EXTERNAL          │
+│   SERVICES          │  │   SERVICES          │  │   SERVICES          │
+│                     │  │                     │  │                     │
+│  ┌───────────────┐  │  │  ┌───────────────┐  │  │  ┌───────────────┐  │
+│  │    Google     │  │  │  │   Razorpay    │  │  │  │    Gmail      │  │
+│  │    OAuth      │◀─┘  │  │   Gateway     │◀─┘  │  │    SMTP       │◀─┘
+│  └───────────────┘     │  └───────────────┘     │  └───────────────┘
+│                        │                        │
+└────────────────────────┴────────────────────────┴─────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                             DATA LAYER                                       │
+│                                                                             │
+│                    ┌─────────────────────────┐                             │
+│                    │     Neon PostgreSQL      │                             │
+│                    │   (Serverless DB)        │                             │
+│                    │  - users                 │                             │
+│                    │  - subscriptions         │                             │
+│                    │  - email_logs            │                             │
+│                    │  - refresh_tokens        │                             │
+│                    └────────────┬────────────┘                             │
+│                                 │                                          │
+│                    ┌────────────▼────────────┐                             │
+│                    │        ChromaDB          │                             │
+│                    │    (Vector Database)     │                             │
+│                    │  - book embeddings       │                             │
+│                    │  - semantic search       │                             │
+│                    └─────────────────────────┘                             │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Service Breakdown:
-1.  **[Auth Service](file:///auth-service)**: Manages users, JWT tokens, and profiles.
-2.  **[RAG Service](file:///rag-service)**: The "brain" — handles AI chat, book search, and vector embeddings.
-3.  **[Email Service](file:///email-service)**: Handles transactional emails like welcome messages and logs.
-4.  **[Payment Service](file:///payment-service)**: Manages mock subscriptions and plan statuses.
+---
+
+## 🔄 Data Flow Diagram
+
+```
+┌──────────┐    1. Login/Register    ┌──────────┐    2. Verify     ┌──────────┐
+│  React   │ ───────────────────────> │  Auth    │ ───────────────> │  Neon    │
+│  Frontend│ <─────────────────────── │  Service │ <─────────────── │   DB     │
+└──────────┘    7. JWT + Cookies      └──────────┘    3. User Data  └──────────┘
+      │                                    
+      │ 4. Search Books                    ┌──────────┐    5. Query    ┌──────────┐
+      └──────────────────────────────────> │   RAG    │ ─────────────> │ ChromaDB │
+                                           │  Service │ <───────────── │          │
+      ┌──────────────────────────────────< │          │    6. Embeddings└──────────┘
+      │ 8. Results + AI Response           └──────────┘
+      │
+      │ 9. Upgrade to Premium              ┌──────────┐   10. Create   ┌──────────┐
+      └──────────────────────────────────> │ Payment  │ ─────────────> │ Razorpay │
+                                           │ Service  │ <───────────── │ Gateway  │
+      ┌──────────────────────────────────< └──────────┘   11. Order ID └──────────┘
+      │ 12. Payment Success
+      │
+      │                                   ┌──────────┐   13. Webhook   ┌──────────┐
+      └──────────────────────────────────> │ Payment  │ <───────────── │ Razorpay │
+                                           │ Service  │    Payment     │ Gateway  │
+                                           └────┬─────┘    Confirmed   └──────────┘
+                                                │
+                                           ┌────▼─────┐   14. Update   ┌──────────┐
+                                           │ Payment  │ ─────────────> │  Neon    │
+                                           │ Service  │    Subscription│   DB     │
+                                           └────┬─────┘ <───────────── └──────────┘
+                                                │
+                                           ┌────▼─────┐   15. Trigger  ┌──────────┐
+                                           │  Email   │ ─────────────> │  SMTP    │
+                                           │ Service  │    Confirmation│  Gmail   │
+                                           └──────────┘ <───────────── └──────────┘
+```
 
 ---
 
-## ⚙️ Setup & Installation
+## 📊 Service Communication Matrix
 
-### 1. Prerequisites
+| Service | Talks To | Purpose |
+|---------|----------|---------|
+| **Frontend** | All Services | User interface & API calls |
+| **Auth** | NeonDB, Google OAuth | Authentication & user data |
+| **RAG** | NeonDB, ChromaDB, Gemini | Book search & AI responses |
+| **Payment** | NeonDB, Razorpay | Subscriptions & payments |
+| **Email** | NeonDB, Gmail SMTP | Notifications & receipts |
+
+---
+
+## ⚙️ Quick Start
+
+### Prerequisites
 - Python 3.11+
 - Node.js 18+
-- Neon DB Connection String
+- Neon DB Account
 - Gemini API Key
+- Razorpay Test Credentials
 
-### 2. Environment Variables
-Create a `.env` file in the root directory:
-
-```env
-# Relational DB
-DB_URL_NEON=postgresql://user:pass@host/db?sslmode=require
-
-# AI & Search
-GEMINI_API_KEY=your_gemini_key
-JWT_SECRET=your_jwt_secret
-SESSION_SECRET_KEY=your_session_key
-
-# Service URLs
-ENVIRONMENT=development
-CORS_ORIGINS=http://localhost:5173
-```
-
-### 3. Run the Backend
-You need to start all four services. It is recommended to use virtual environments:
-
+### One-Line Setup
 ```bash
-# In 4 separate terminals:
+git clone https://github.com/rajnishk71249/litscholar.git
+cd litscholar
+
+# Start all services (requires 4 terminals)
 cd auth-service && python run.py
 cd rag-service && python run.py
 cd email-service && python run.py
 cd payment-service && python run.py
+
+# Start frontend
+cd client && npm install && npm run dev
 ```
 
-### 4. Run the Frontend
-```bash
-cd client
-npm install
-npm run dev
-```
+Visit `http://localhost:5173` 🚀
 
-### 5. Data Ingestion (Initial Setup)
-To populate the database and generate embeddings:
-```bash
-python -m data_processing.run_pipeline
-```
+---
+
+## 🌟 Why LitScholar?
+
+✅ **Modern Architecture** - Microservices with FastAPI  
+✅ **Production Ready** - JWT, cookies, webhooks, rate limiting  
+✅ **Real Payments** - Razorpay integration with webhooks  
+✅ **AI-Powered** - Gemini API with RAG architecture  
+✅ **Scalable** - Serverless DB, stateless services  
+✅ **Beautiful UI** - Glassmorphism, smooth animations  
 
 ---
 
@@ -112,20 +218,11 @@ python -m data_processing.run_pipeline
 
 ```
 LitScholar/
-├── client/             # Vite + React Frontend
-├── auth-service/       # JWT, Profiles, User Management
-├── rag-service/        # AI Librarian, ChromaDB, Gemini RAG
-├── email-service/      # Background Email Notifications
-├── payment-service/    # Subscriptions & Premium Plans
-├── data_processing/    # CSV Cleaning & Embedding Scripts
-└── data/               # Raw datasets (book_raw.csv)
+├── client/           # React Frontend
+├── auth-service/     # JWT, OAuth, Users
+├── rag-service/      # AI, Search, Books
+├── email-service/    # SMTP, Templates
+├── payment-service/  # Razorpay, Subscriptions
+└── data_processing/  # Embedding pipeline
 ```
 
----
-
-## 🛡️ License & Acknowledgements
-- **License**: MIT
-- **Inspiration**: Built for book lovers who want a smarter way to browse.
-- **Author**: Rajnish Kumar (@rajnishk71249)
-
-© 2026 LitScholar - Modern AI Librarian.

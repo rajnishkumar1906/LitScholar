@@ -17,6 +17,7 @@ router = APIRouter()
 async def login(
     response: Response,
     data: LoginRequest, 
+    background_tasks: BackgroundTasks,
     db: asyncpg.Connection = Depends(get_async_db)
 ):
     row = await db.fetchrow(
@@ -36,7 +37,6 @@ async def login(
             detail="This account uses Google login",
         )
 
-    # Use to_thread for blocking bcrypt checkpw
     import anyio
     is_valid = await anyio.to_thread.run_sync(
         bcrypt.checkpw, data.password.encode(), password_hash.encode()
@@ -58,7 +58,70 @@ async def login(
 
     set_auth_cookies(response, access_token, refresh_token)
 
+    # 🚀 LOGIN EMAIL - Using existing /send-email endpoint with FULL HTML body
+    async def trigger_login_email(email: str):
+        try:
+            # Create HTML email content
+            username = email.split('@')[0]
+            current_time = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+            
+            html_body = f"""
+            <html>
+            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 10px;">
+                    <div style="text-align: center; margin-bottom: 30px;">
+                        <h1 style="color: #4F46E5;">🔐 New Login Detected</h1>
+                    </div>
+                    
+                    <p>Hello <strong>{username}</strong>,</p>
+                    
+                    <p>A new login to your LitScholar account was just detected:</p>
+                    
+                    <div style="background: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                        <p style="margin: 5px 0;"><strong>Time:</strong> {current_time} UTC</p>
+                        <p style="margin: 5px 0;"><strong>Account:</strong> {email}</p>
+                    </div>
+                    
+                    <p>✅ <strong>If this was you</strong> - You can safely ignore this email.</p>
+                    
+                    <p>⚠️ <strong>If you didn't login</strong> - Please secure your account immediately:</p>
+                    <ul style="margin-bottom: 20px;">
+                        <li>Change your password</li>
+                        <li>Contact support if you notice any suspicious activity</li>
+                    </ul>
+                    
+                    <hr style="border: none; border-top: 1px solid #eaeaea; margin: 30px 0;">
+                    
+                    <p style="text-align: center; color: #666;">
+                        Happy Reading! 📚<br>
+                        <strong>The LitScholar Team</strong>
+                    </p>
+                    
+                    <p style="text-align: center; font-size: 12px; color: #999; margin-top: 30px;">
+                        This is an automated message, please do not reply to this email.
+                    </p>
+                </div>
+            </body>
+            </html>
+            """
+            
+            async with httpx.AsyncClient() as client:
+                await client.post(
+                    f"{settings.EMAIL_SERVICE_URL}/send-email",
+                    json={
+                        "email": [email],
+                        "subject": "🔐 New Login to LitScholar",
+                        "body": html_body
+                    }
+                )
+                print(f"📧 Login email triggered for {email}")
+        except Exception as e:
+            print(f"❌ Failed to trigger login email: {e}")
+
+    background_tasks.add_task(trigger_login_email, data.email)
+
     return {"success": True, "message": "Login successful", "email": data.email}
+
 
 @router.post("/register")
 async def register(
@@ -72,7 +135,7 @@ async def register(
     if exists:
         raise HTTPException(status_code=400, detail="Email already registered")
 
-    # Hash password (offload to thread)
+    # Hash password
     import anyio
     hashed_bytes = await anyio.to_thread.run_sync(
         bcrypt.hashpw, data.password.encode(), bcrypt.gensalt()
@@ -85,14 +148,18 @@ async def register(
         data.email, hashed,
     )
 
-    # Trigger welcome email in background
+    # 🚀 REGISTRATION EMAIL - Using existing /welcome endpoint
     async def trigger_welcome_email(email: str):
         try:
             async with httpx.AsyncClient() as client:
                 await client.post(
                     f"{settings.EMAIL_SERVICE_URL}/welcome",
-                    json={"email": email}
+                    json={
+                        "email": email, 
+                        "username": email.split('@')[0]
+                    }
                 )
+                print(f"📧 Welcome email triggered for {email}")
         except Exception as e:
             print(f"❌ Error calling email service: {e}")
 
@@ -115,6 +182,7 @@ async def register(
     set_auth_cookies(response, access_token, refresh_token)
 
     return {"success": True, "message": "Registration successful", "email": data.email}
+
 
 @router.post("/refresh")
 async def refresh(
@@ -143,7 +211,6 @@ async def refresh(
     email = row["email"]
     new_access_token = create_access_token({"sub": email})
 
-    # Note: We keep the existing refresh token in the cookie
     response.set_cookie(
         key="access_token",
         value=new_access_token,
@@ -156,11 +223,13 @@ async def refresh(
 
     return {"success": True, "message": "Token refreshed"}
 
+
 @router.post("/logout")
 async def logout(response: Response):
     response.delete_cookie("access_token", path="/")
     response.delete_cookie("refresh_token", path="/")
     return {"success": True, "message": "Logged out"}
+
 
 @router.get("/google/login")
 async def google_login(request: Request):
@@ -177,6 +246,7 @@ async def google_login(request: Request):
         return redirect_resp
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"OAuth redirect error: {str(e)}")
+
 
 @router.get("/google/callback")
 async def google_callback(

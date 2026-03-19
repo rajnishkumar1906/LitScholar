@@ -1,39 +1,82 @@
-import time
-import asyncpg
+# email_app/service.py
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from core.config import settings
+import anyio
 
 class EmailService:
-    async def send_mock_email(self, email: str, subject: str, body: str, db: asyncpg.Connection = None, template: str = None):
-        print(f"📧 [MOCK EMAIL] Sending to: {email}")
-        print(f"📧 [MOCK EMAIL] Subject: {subject}")
-        print(f"📧 [MOCK EMAIL] Body: {body}")
-        
-        import anyio
-        await anyio.sleep(1) # Asynchronous sleep
-        
-        print(f"✅ [MOCK EMAIL] Successfully sent to {email}")
-        
-        # Log to DB if connection provided
-        if db:
-            try:
-                await db.execute("""
-                    INSERT INTO email_logs (recipient_email, subject, template_name, status, sent_at)
-                    VALUES ($1, $2, $3, 'sent', NOW())
-                """, email, subject, template)
-            except Exception as e:
-                print(f"⚠️ Failed to log email: {e}")
+    async def send_email(self, to_email: str, subject: str, body: str, template: str = None):
+        """
+        Actually send real email via Gmail SMTP
+        """
+        try:
+            print(f"📧 Preparing to send email to: {to_email}")
+            print(f"📧 Subject: {subject}")
+            
+            # Create message
+            msg = MIMEMultipart()
+            msg["From"] = settings.SENDER_EMAIL
+            msg["To"] = to_email
+            msg["Subject"] = subject
+            msg.attach(MIMEText(body, "html"))
 
-    async def trigger_welcome_email(self, email: str, username: str = None, db: asyncpg.Connection = None):
+            # Connect to Gmail SMTP
+            print(f"🔌 Connecting to {settings.SMTP_SERVER}:{settings.SMTP_PORT}...")
+            server = smtplib.SMTP(settings.SMTP_SERVER, settings.SMTP_PORT)
+            server.starttls()
+            
+            # Login
+            print(f"🔐 Logging in as {settings.SMTP_USERNAME}...")
+            server.login(settings.SMTP_USERNAME, settings.SMTP_PASSWORD)
+            
+            # Send email
+            print("📤 Sending email...")
+            server.send_message(msg)
+            server.quit()
+            
+            print(f"✅ [REAL EMAIL] Successfully sent to {to_email}")
+            
+            # Log to console (you can add DB logging later)
+            return True
+            
+        except Exception as e:
+            print(f"❌ [REAL EMAIL] Failed to send to {to_email}: {e}")
+            print(f"Error details: {str(e)}")
+            return False
+
+    async def send_mock_email(self, email: str, subject: str, body: str, template: str = None):
+        """
+        Keep mock for fallback, but try real email first
+        """
+        print(f"📧 [MOCK] Would send to: {email}")
+        print(f"📧 [MOCK] Subject: {subject}")
+        
+        # Try to send real email
+        await self.send_email(email, subject, body, template)
+        
+        await anyio.sleep(1)
+        print(f"✅ [MOCK] Process completed for {email}")
+
+    async def trigger_welcome_email(self, email: str, username: str = None):
         subject = "Welcome to LitScholar! 📚"
         user = username or email.split('@')[0]
         body = f"""
-        Hi {user},
-        
-        Welcome to LitScholar! We're thrilled to have you here.
-        Explore our collection and start your reading journey today!
-        
-        Happy Reading,
-        The LitScholar Team
+        <html>
+        <body style="font-family: Arial, sans-serif;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                <h2 style="color: #4F46E5;">Welcome to LitScholar!</h2>
+                <p>Hi {user},</p>
+                <p>Welcome to LitScholar! We're thrilled to have you here.</p>
+                <p>Explore our collection and start your reading journey today!</p>
+                <br>
+                <p>Happy Reading! 📚</p>
+                <p>The LitScholar Team</p>
+            </div>
+        </body>
+        </html>
         """
-        await self.send_mock_email(email, subject, body, db, template="welcome_email")
+        await self.send_email(email, subject, body, template="welcome_email")
 
+# Create instance
 email_service = EmailService()

@@ -8,7 +8,7 @@ async def get_async_db():
     Used by async services that rely on asyncpg APIs
     like fetchrow / fetch / execute.
     """
-    conn = await asyncpg.connect(settings.DB_URL_NEON)
+    conn = await asyncpg.connect(settings.DB_NEON_URL)
     try:
         yield conn
     finally:

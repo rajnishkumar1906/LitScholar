@@ -1,0 +1,5 @@
+Start-Process powershell -ArgumentList "cd auth-service; python run.py"
+Start-Process powershell -ArgumentList "cd rag-service; python run.py"
+Start-Process powershell -ArgumentList "cd email-service; python run.py"
+Start-Process powershell -ArgumentList "cd payment-service; python run.py"
+Start-Process powershell -ArgumentList "cd client; npm run dev"
