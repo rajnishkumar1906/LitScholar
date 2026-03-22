@@ -1,3 +1,4 @@
+# retrieval/retriever.py
 from sentence_transformers import SentenceTransformer
 from retrieval.chroma_client import get_chroma_collection
 import os
@@ -15,31 +16,23 @@ def get_model():
     if _model is None:
         print("🔄 Loading embedding model: all-mpnet-base-v2")
         
-        # For production, you might want to set device explicitly
-        device = os.environ.get('MODEL_DEVICE', 'cpu')
+        # For production, use CPU (most reliable)
+        device = 'cpu'
         
-        # Load model with optimizations for production
+        # Load model with production optimizations
         _model = SentenceTransformer(
             "all-mpnet-base-v2",
             device=device,
-            cache_folder=os.environ.get('MODEL_CACHE_DIR', "/tmp/model_cache")  # Optional cache dir
+            cache_folder="/tmp/model_cache"  # Use /tmp for model cache on Render
         )
-        
-        # Optional: Use half precision for faster inference (if supported)
-        if os.environ.get('USE_FP16', 'false').lower() == 'true':
-            try:
-                _model.half()
-                print("✅ Using FP16 precision for faster inference")
-            except:
-                print("⚠️ FP16 not supported, using FP32")
         
         print("✅ Embedding model loaded successfully")
     
     return _model
 
-def search_books(query: str, top_k: int = 6, min_score: float | None = None):
+def retrieve_books(query: str, top_k: int = 6, min_score: float | None = None):
     """
-    Search for books using semantic similarity
+    Retrieve books using semantic similarity
     
     Args:
         query: Search query text
@@ -58,8 +51,11 @@ def search_books(query: str, top_k: int = 6, min_score: float | None = None):
         top_k = 6
     
     try:
-        # Get Chroma collection (this will handle data extraction if needed)
+        # Get Chroma collection
         collection = get_chroma_collection()
+        if collection is None:
+            print("❌ Chroma collection not available")
+            return []
     except Exception as e:
         print(f"❌ Chroma collection error: {e}")
         return []
@@ -78,11 +74,11 @@ def search_books(query: str, top_k: int = 6, min_score: float | None = None):
         results = collection.query(
             query_embeddings=[query_embedding],
             n_results=top_k,
-            include=["metadatas", "distances"]  # Explicitly include what we need
+            include=["distances"]  # Only need distances for scoring
         )
         
     except Exception as e:
-        print(f"❌ Error during search: {e}")
+        print(f"❌ Error during retrieval: {e}")
         return []
 
     # Check if we got results
@@ -91,7 +87,7 @@ def search_books(query: str, top_k: int = 6, min_score: float | None = None):
         return []
 
     books = []
-    print(f"\n[search_books] Query: '{query}'")
+    print(f"\n[retrieve_books] Query: '{query}'")
     print("Rank | Book ID | Distance | Score")
     print("-" * 40)
 
@@ -129,26 +125,33 @@ def search_books(query: str, top_k: int = 6, min_score: float | None = None):
 
     return books
 
-# Optional: Add a function to get collection stats
-def get_collection_stats():
-    """Get statistics about the Chroma collection"""
+def get_retriever_stats():
+    """Get statistics about the retriever and Chroma collection"""
     try:
         collection = get_chroma_collection()
+        if collection is None:
+            return {
+                "error": "Collection not available", 
+                "total_embeddings": 0, 
+                "has_data": False
+            }
+        
         count = collection.count()
         
-        # Get a sample to check metadata
-        sample = None
-        if count > 0:
-            sample = collection.get(limit=1)
+        # Check if model is loaded
+        model_loaded = _model is not None
         
         return {
             "total_embeddings": count,
-            "collection_name": collection.name,
-            "has_data": count > 0
+            "collection_name": "books",
+            "has_data": count > 0,
+            "model_loaded": model_loaded,
+            "max_distance_threshold": MAX_DISTANCE
         }
     except Exception as e:
         return {
             "error": str(e),
             "total_embeddings": 0,
-            "has_data": False
+            "has_data": False,
+            "model_loaded": False
         }
