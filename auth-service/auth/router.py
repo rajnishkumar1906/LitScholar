@@ -66,44 +66,53 @@ async def login(
             current_time = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
             
             html_body = f"""
-            <html>
-            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-                <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 10px;">
-                    <div style="text-align: center; margin-bottom: 30px;">
-                        <h1 style="color: #4F46E5;">🔐 New Login Detected</h1>
+                <html>
+                <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #1a1a1a; background-color: #f9fafb; margin: 0; padding: 0;">
+                    <div style="max-width: 550px; margin: 40px auto; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                        
+                        <div style="padding: 30px 40px 10px 40px;">
+                            <h2 style="color: #4F46E5; font-size: 20px; font-weight: 600; margin: 0;">Security Alert: New Login</h2>
+                        </div>
+                
+                        <div style="padding: 0 40px 30px 40px;">
+                            <p style="font-size: 15px; margin-top: 20px;">Hi {username},</p>
+                            
+                            <p style="font-size: 15px;">A new sign-in was detected for your LitScholar account. If this was you, no further action is required.</p>
+                            
+                            <div style="background-color: #f8fafc; border: 1px solid #f1f5f9; border-radius: 6px; padding: 20px; margin: 25px 0;">
+                                <table style="width: 100%; font-size: 14px; border-collapse: collapse;">
+                                    <tr>
+                                        <td style="color: #64748b; padding-bottom: 8px; width: 80px;">Account</td>
+                                        <td style="font-weight: 500; padding-bottom: 8px;">{email}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="color: #64748b;">Time</td>
+                                        <td style="font-weight: 500;">{current_time} UTC</td>
+                                    </tr>
+                                </table>
+                            </div>
+                
+                            <p style="font-size: 14px; color: #475569;">
+                                <strong>Not you?</strong> To protect your account, we recommend changing your password immediately and reviewing your recent activity.
+                            </p>
+                            
+                            <div style="margin-top: 30px;">
+                                <a href="#" style="background-color: #4F46E5; color: #ffffff; padding: 12px 24px; border-radius: 5px; text-decoration: none; font-size: 14px; font-weight: 500; display: inline-block;">Secure Account</a>
+                            </div>
+                        </div>
+                
+                        <div style="background-color: #f9fafb; padding: 25px 40px; border-top: 1px solid #e5e7eb; text-align: center;">
+                            <p style="font-size: 13px; color: #94a3b8; margin: 0;">
+                                Sent by <strong>LitScholar</strong>
+                            </p>
+                            <p style="font-size: 12px; color: #cbd5e1; margin-top: 8px;">
+                                This is a mandatory security notification. You cannot unsubscribe from security alerts.
+                            </p>
+                        </div>
                     </div>
-                    
-                    <p>Hello <strong>{username}</strong>,</p>
-                    
-                    <p>A new login to your LitScholar account was just detected:</p>
-                    
-                    <div style="background: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0;">
-                        <p style="margin: 5px 0;"><strong>Time:</strong> {current_time} UTC</p>
-                        <p style="margin: 5px 0;"><strong>Account:</strong> {email}</p>
-                    </div>
-                    
-                    <p>✅ <strong>If this was you</strong> - You can safely ignore this email.</p>
-                    
-                    <p>⚠️ <strong>If you didn't login</strong> - Please secure your account immediately:</p>
-                    <ul style="margin-bottom: 20px;">
-                        <li>Change your password</li>
-                        <li>Contact support if you notice any suspicious activity</li>
-                    </ul>
-                    
-                    <hr style="border: none; border-top: 1px solid #eaeaea; margin: 30px 0;">
-                    
-                    <p style="text-align: center; color: #666;">
-                        Happy Reading! 📚<br>
-                        <strong>The LitScholar Team</strong>
-                    </p>
-                    
-                    <p style="text-align: center; font-size: 12px; color: #999; margin-top: 30px;">
-                        This is an automated message, please do not reply to this email.
-                    </p>
-                </div>
-            </body>
-            </html>
-            """
+                </body>
+                </html>
+                """
             
             async with httpx.AsyncClient() as client:
                 await client.post(

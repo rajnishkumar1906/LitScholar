@@ -1,7 +1,6 @@
-// src/services/books.js - Books service
-import { ragApi, handleResponse } from './api';
+// src/services/books.js
+import { ragApi, authApi, handleResponse } from './api';
 
-// Helper to format book data consistently
 const formatBook = (book) => {
   const genres = book.genres || book.book_details || "";
   let category = "General";
@@ -26,69 +25,32 @@ const formatBook = (book) => {
 };
 
 export const booksService = {
-  // Search books with AI assistant
   async searchBooks(query, topK = 10, isPremium = false) {
     const endpoint = isPremium ? "/assistant/ask/premium" : "/assistant/ask";
-    
     const result = await handleResponse(
-      ragApi.post(endpoint, {
-        question: query,
-        top_k: topK,
-      })
+      ragApi.post(endpoint, { question: query, top_k: topK })
     );
-    
     if (result.success) {
       const { books = [], answer = "" } = result.data;
-      return {
-        success: true,
-        books: books.map(formatBook),
-        answer
-      };
+      return { success: true, books: books.map(formatBook), answer };
     }
-    
     return result;
   },
 
-  // Get book by ID
   async getBookById(bookId) {
-    const result = await handleResponse(
-      ragApi.get(`/books/${bookId}`)
-    );
-    
-    if (result.success) {
-      return {
-        success: true,
-        book: formatBook(result.data)
-      };
-    }
-    
+    const result = await handleResponse(ragApi.get(`/books/${bookId}`));
+    if (result.success) return { success: true, book: formatBook(result.data) };
     return result;
   },
 
-  // Get book summary
   async getBookSummary(bookId) {
-    const result = await handleResponse(
-      ragApi.get(`/books/${bookId}/summary`)
-    );
-    
-    if (result.success) {
-      return {
-        success: true,
-        summary: result.data.summary
-      };
-    }
-    
+    const result = await handleResponse(ragApi.get(`/books/${bookId}/summary`));
+    if (result.success) return { success: true, summary: result.data.summary };
     return result;
   },
 
-  // List books with pagination
   async listBooks(page = 1, limit = 20) {
-    const result = await handleResponse(
-      ragApi.get('/books/', {
-        params: { page, limit }
-      })
-    );
-    
+    const result = await handleResponse(ragApi.get('/books/', { params: { page, limit } }));
     if (result.success) {
       return {
         success: true,
@@ -98,18 +60,13 @@ export const booksService = {
         hasMore: result.data.hasMore || false
       };
     }
-    
     return result;
   },
 
-  // Get books by genre
   async getBooksByGenre(genre, page = 1, limit = 20) {
     const result = await handleResponse(
-      ragApi.get(`/books/by-genre/${encodeURIComponent(genre)}`, {
-        params: { page, limit }
-      })
+      ragApi.get(`/books/by-genre/${encodeURIComponent(genre)}`, { params: { page, limit } })
     );
-    
     if (result.success) {
       return {
         success: true,
@@ -118,86 +75,85 @@ export const booksService = {
         genre
       };
     }
-    
     return result;
   },
 
-  // Ask follow-up question
   async askFollowUp(question, books = []) {
     const bookIds = books.map(b => b.id || b.book_id).filter(Boolean);
     const payload = { question };
     if (bookIds.length) payload.book_ids = bookIds;
-
-    const result = await handleResponse(
-      ragApi.post('/assistant/ask', payload)
-    );
-    
-    return result;
+    return handleResponse(ragApi.post('/assistant/ask', payload));
   },
 
-  // Get recommendations
   async getRecommendations(type = 'for-you', limit = 8, page = 1) {
-    let endpoint = '/books/recommended/';
-    
-    switch(type) {
-      case 'for-you':
-        endpoint += 'for-you';
-        break;
-      case 'popular':
-        endpoint += 'popular';
-        break;
-      case 'similar':
-        endpoint += 'similar';
-        break;
-      case 'genre':
-        endpoint += 'by-genre';
-        break;
-      default:
-        endpoint += 'for-you';
-    }
-    
-    const result = await handleResponse(
-      ragApi.get(endpoint, {
-        params: { limit, page }
-      })
-    );
-    
+    const endpoints = {
+      'for-you': '/books/recommended/for-you',
+      'popular':  '/books/recommended/popular',
+      'similar':  '/books/recommended/similar',
+      'genre':    '/books/recommended/by-genre',
+    };
+    const endpoint = endpoints[type] || '/books/recommended/for-you';
+    const result = await handleResponse(ragApi.get(endpoint, { params: { limit, page } }));
     if (result.success) {
-      const books = (result.data.books || []).map(formatBook);
       return {
         success: true,
-        books,
+        books: (result.data.books || []).map(formatBook),
         hasMore: result.data.hasMore || false,
         page: result.data.page || page
       };
     }
-    
     return result;
   },
 
-  // Track book view
   async trackBook(bookId) {
-    return handleResponse(
-      ragApi.post(`/books/track/${bookId}`)
-    );
+    return handleResponse(ragApi.post(`/books/track/${bookId}`));
   },
 
-  // Add book to user list
   async addUserBook(bookId, listType, rating = null, notes = null) {
     return handleResponse(
-      ragApi.post('/books/user/books', {
-        book_id: bookId,
-        list_type: listType,
-        rating,
-        notes
-      })
+      ragApi.post('/books/user/books', { book_id: bookId, list_type: listType, rating, notes })
     );
   },
 
-  // Mark book as finished
   async finishBook(bookId) {
-    return handleResponse(
-      ragApi.post('/books/finish', { book_id: bookId })
+    return handleResponse(ragApi.post('/books/finish', { book_id: bookId }));
+  },
+
+  // ── User profile & activity (auth service — same base URL as authApi) ──────
+
+  // GET /users/profile
+  async getUserProfile() {
+    const result = await handleResponse(authApi.get('/users/profile'));
+    return result.success
+      ? { success: true, data: result.data }
+      : { success: false, error: result.error };
+  },
+
+  // PUT /users/profile
+  async updateUserProfile(profileData) {
+    const result = await handleResponse(authApi.put('/users/profile', profileData));
+    return result.success
+      ? { success: true, data: result.data }
+      : { success: false, error: result.error };
+  },
+
+  // GET /users/books?list_type=finished&limit=10
+  async getUserBooks(listType = 'finished', limit = 10) {
+    const result = await handleResponse(
+      authApi.get('/users/books', { params: { list_type: listType, limit } })
     );
-  }
+    return result.success
+      ? { success: true, books: result.data || [] }
+      : { success: false, books: [] };
+  },
+
+  // GET /users/activity?limit=10
+  async getUserActivity(limit = 10) {
+    const result = await handleResponse(
+      authApi.get('/users/activity', { params: { limit } })
+    );
+    return result.success
+      ? { success: true, activities: result.data || [] }
+      : { success: false, activities: [] };
+  },
 };

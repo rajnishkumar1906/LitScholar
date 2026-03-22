@@ -78,5 +78,31 @@ class EmailService:
         """
         await self.send_email(email, subject, body, template="welcome_email")
 
+    async def send_payment_confirmation(self,email:str,username:str,plan_name : str,amount:float,payment_id :str, expiry_date:str):
+        subject = f'Payment confirmed! yout LitScholar {plan_name} is active'
+        
+        body = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
+                <h2 style="color: #4F46E5;">Thank you for your purchase, {username}!</h2>
+                <p>Your payment has been successfully processed. You now have full access to <strong>LitScholar Premium</strong>.</p>
+                
+                <div style="background-color: #f9fafb; padding: 15px; border-radius: 8px;">
+                    <p><strong>Plan:</strong> {plan_name}</p>
+                    <p><strong>Amount Paid:</strong> ₹{amount}</p>
+                    <p><strong>Payment ID:</strong> {payment_id}</p>
+                    <p><strong>Valid Until:</strong> {expiry_date}</p>
+                </div>
+
+                <p style="margin-top: 20px;">Enjoy your reading journey!</p>
+                <br>
+                <p>Best regards,<br>The LitScholar Team</p>
+            </div>
+        </body>
+        </html>
+        """
+        await self.send_email(email,subject,body,template='payment_confirmation')
+        
 # Create instance
 email_service = EmailService()

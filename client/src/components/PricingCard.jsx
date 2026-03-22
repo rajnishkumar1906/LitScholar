@@ -1,57 +1,83 @@
 // src/components/PricingCard.jsx
-import React from 'react';
+import { useState } from 'react';
 import { paymentService } from '../services/payments';
 import { useApp } from '../context/AppContext';
 import { toast } from 'react-toastify';
 
-const PricingCard = ({ planId, onSuccess }) => {
-  const { user } = useApp();
-  const plan = paymentService.getPlanDetails(planId);
+const CheckIcon = () => (
+  <svg width="15" height="15" viewBox="0 0 15 15" fill="none" style={{ flexShrink: 0, marginTop: 2 }}>
+    <circle cx="7.5" cy="7.5" r="7" stroke="rgba(180,130,70,0.45)" strokeWidth="1"/>
+    <path d="M4.5 7.5l2 2 4-4" stroke="#c8934a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+
+const BADGE = { yearly: 'Most Popular', lifetime: 'Best Value' };
+
+const CARD_STYLE = {
+  monthly:  { delay: '0ms',    featured: false },
+  yearly:   { delay: '110ms',  featured: true  },
+  lifetime: { delay: '220ms',  featured: false },
+};
+
+export default function PricingCard({ planId, onSuccess }) {
+  const { user, checkAuth } = useApp();
+  const plan    = paymentService.getPlanDetails(planId);
+  const [loading, setLoading] = useState(false);
+  const cfg     = CARD_STYLE[planId] || CARD_STYLE.monthly;
+  const badge   = BADGE[planId];
 
   const handleSubscribe = async () => {
-    if (!user) {
-      toast.error('Please login to subscribe');
-      return;
-    }
-
+    if (!user) { toast.error('Please login to subscribe'); return; }
+    setLoading(true);
     await paymentService.initiatePayment(
-      user.id,
-      user.email,
-      planId,
-      (data) => {
-        console.log('Payment success:', data);
-        if (onSuccess) onSuccess(data);
-        // Refresh subscription status
-        window.location.reload();
-      },
-      (error) => {
-        console.error('Payment failed:', error);
-      }
+      user.id, user.email, planId,
+      async (data) => { setLoading(false); await checkAuth(); if (onSuccess) onSuccess(data); },
+      ()         => setLoading(false)
     );
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-lg p-6 border border-gray-200 hover:shadow-xl transition">
-      <h3 className="text-xl font-bold text-gray-900">{plan.name}</h3>
-      <div className="mt-4">
-        <span className="text-3xl font-bold text-indigo-600">{plan.priceLabel}</span>
+    <div
+      className={`pricing-card${cfg.featured ? ' pricing-card--featured' : ''}`}
+      style={{ animationDelay: cfg.delay }}
+    >
+      {/* inner shimmer border */}
+      <div className="pricing-card__border" />
+
+      {badge && <div className="pricing-card__badge">{badge}</div>}
+
+      <div className="pricing-card__top">
+        <p className="pricing-card__label">{plan.name}</p>
+        <p className="pricing-card__price">{plan.priceLabel}</p>
+        {plan.savings && <p className="pricing-card__savings">{plan.savings}</p>}
       </div>
-      {plan.savings && (
-        <p className="mt-2 text-sm text-green-600 font-semibold">{plan.savings}</p>
-      )}
-      <ul className="mt-6 space-y-3">
-        {plan.features.map((feature, index) => (
-          <li key={index} className="text-sm text-gray-600">{feature}</li>
+
+      <div className="pricing-card__rule" />
+
+      <ul className="pricing-card__list">
+        {plan.features.map((f, i) => (
+          <li key={i} className="pricing-card__item">
+            <CheckIcon />
+            <span>{f}</span>
+          </li>
         ))}
       </ul>
+
       <button
         onClick={handleSubscribe}
-        className="mt-8 w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition"
+        disabled={loading}
+        className={`pricing-card__btn${cfg.featured ? ' pricing-card__btn--featured' : ''}`}
       >
-        Subscribe Now
+        {loading
+          ? <span className="pricing-card__spinner" />
+          : <>
+              <span>{planId === 'lifetime' ? 'Get Lifetime Access' : 'Get Started'}</span>
+              <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+                <path d="M2.5 7.5h10M9 3.5l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </>
+        }
       </button>
     </div>
   );
-};
-
-export default PricingCard;
+}

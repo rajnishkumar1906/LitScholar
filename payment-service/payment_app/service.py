@@ -1,5 +1,5 @@
 import time
-import random
+import json
 import asyncpg
 import razorpay
 import httpx
@@ -10,12 +10,11 @@ from core.config import settings
 razorpay_client = razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
 
 class PaymentService:
-    async def send_payment_email(self, email: str, user_id: int, plan_id: str, amount: int, payment_id: str):
+    async def send_payment_email(self, email: str, plan_id: str, amount: int, payment_id: str, expires_at: datetime):
         """
-        Trigger email via email service
+        Trigger structured email via the dedicated email service microservice
         """
         try:
-            # Map plan_id to readable name
             plan_names = {
                 "monthly": "Monthly Subscription",
                 "yearly": "Yearly Subscription",
@@ -23,72 +22,44 @@ class PaymentService:
             }
             
             plan_name = plan_names.get(plan_id, plan_id)
-            amount_inr = amount / 100  # Convert from paise to rupees
+            amount_inr = amount / 100 
             
-            # Create HTML email content
-            html_body = f"""
-            <html>
-            <body style="font-family: Arial, sans-serif;">
-                <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 10px;">
-                    <h2 style="color: #4F46E5;">🎉 Payment Successful!</h2>
-                    
-                    <p>Hello,</p>
-                    
-                    <p>Thank you for your payment! Your subscription has been activated successfully.</p>
-                    
-                    <div style="background: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0;">
-                        <p><strong>Plan:</strong> {plan_name}</p>
-                        <p><strong>Amount:</strong> ₹{amount_inr:.2f}</p>
-                        <p><strong>Payment ID:</strong> {payment_id}</p>
-                        <p><strong>Date:</strong> {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC</p>
-                    </div>
-                    
-                    <p>You now have access to all premium features!</p>
-                    
-                    <hr style="border: none; border-top: 1px solid #eaeaea; margin: 30px 0;">
-                    
-                    <p style="text-align: center; color: #666;">
-                        Happy Reading! 📚<br>
-                        <strong>The LitScholar Team</strong>
-                    </p>
-                </div>
-            </body>
-            </html>
-            """
-            
-            # Call email service
+            # Formatted date for the email service payload
+            expiry_str = expires_at.strftime('%Y-%m-%d') if plan_id != "lifetime" else "Lifetime Access"
+
             async with httpx.AsyncClient() as client:
-                await client.post(
-                    f"{settings.EMAIL_SERVICE_URL}/send-email",
+                response = await client.post(
+                    f"{settings.EMAIL_SERVICE_URL}/payment-confirmation",
                     json={
-                        "email": [email],
-                        "subject": "🎉 Payment Successful - LitScholar Subscription",
-                        "body": html_body
+                        "email": email,
+                        "username": email.split('@')[0],
+                        "plan_name": plan_name,
+                        "amount": amount_inr,
+                        "payment_id": payment_id,
+                        "expiry_date": expiry_str
                     },
                     timeout=5.0
                 )
-            print(f"📧 Payment confirmation email sent to {email}")
+                response.raise_for_status()
+                
+            print(f"✅ Payment confirmation email triggered for {email}")
             
         except Exception as e:
-            print(f"⚠️ Failed to send payment email: {e}")
+            print(f"⚠️ Email Service Error: {e}")
 
     async def create_checkout_session(self, user_id: int, email: str, plan_id: str):
         """
-        Create a real Razorpay order
+        Create a real Razorpay order for the frontend
         """
-        print(f"💰 Creating Razorpay order for {email} - Plan: {plan_id}")
-        
-        # Define plan prices (in paise - ₹1 = 100 paise)
         plans = {
             "monthly": 49900,    # ₹499
-            "yearly": 399900,     # ₹3999
-            "lifetime": 999900    # ₹9999
+            "yearly": 399900,    # ₹3999
+            "lifetime": 999900   # ₹9999
         }
         
         if plan_id not in plans:
             raise ValueError(f"Invalid plan: {plan_id}")
         
-        # Create Razorpay order
         order_data = {
             "amount": plans[plan_id],
             "currency": settings.CURRENCY,
@@ -111,13 +82,12 @@ class PaymentService:
             "plan_id": plan_id,
             "user_id": user_id
         }
-    
+
     async def verify_payment(self, order_id: str, payment_id: str, signature: str, db: asyncpg.Connection):
         """
-        Verify payment signature and update subscription
+        Verify payment signature and update subscription manually from frontend
         """
         try:
-            # Verify signature
             params_dict = {
                 "razorpay_order_id": order_id,
                 "razorpay_payment_id": payment_id,
@@ -125,20 +95,20 @@ class PaymentService:
             }
             
             razorpay_client.utility.verify_payment_signature(params_dict)
-            print(f"✅ Payment signature verified for order: {order_id}")
             
-            # Fetch order details to get user info
+            # Fetch order details to get user metadata
             order = razorpay_client.order.fetch(order_id)
             user_id = int(order["notes"]["user_id"])
             email = order["notes"]["email"]
             plan_id = order["notes"]["plan_id"]
             amount = order["amount"]
             
-            # Update subscription in database
+            # Update DB
             result = await self.update_subscription(user_id, plan_id, db, payment_id)
             
-            # 🚀 SEND PAYMENT CONFIRMATION EMAIL
-            await self.send_payment_email(email, user_id, plan_id, amount, payment_id)
+            # Trigger Email
+            expires_at = datetime.fromtimestamp(result["expires_at"])
+            await self.send_payment_email(email, plan_id, amount, payment_id, expires_at)
             
             return {
                 "success": True,
@@ -153,11 +123,8 @@ class PaymentService:
 
     async def update_subscription(self, user_id: int, plan_id: str, db: asyncpg.Connection, payment_id: str = None):
         """
-        Update subscription after successful payment
+        Idempotent update of subscription in the database
         """
-        from datetime import datetime, timedelta
-        
-        # Calculate expiration based on plan
         now = datetime.utcnow()
         
         if plan_id == "monthly":
@@ -165,11 +132,10 @@ class PaymentService:
         elif plan_id == "yearly":
             expires_at = now + timedelta(days=365)
         elif plan_id == "lifetime":
-            expires_at = now + timedelta(days=36500)  # ~100 years
+            expires_at = now + timedelta(days=36500) # ~100 years
         else:
             expires_at = now + timedelta(days=30)
         
-        # Insert or update subscription
         result = await db.fetchrow("""
             INSERT INTO subscriptions (user_id, plan_name, is_active, expires_at, updated_at, payment_id)
             VALUES ($1, $2, TRUE, $3, NOW(), $4)
@@ -194,7 +160,7 @@ class PaymentService:
 
     async def get_subscription_status(self, user_id: int, db: asyncpg.Connection):
         """
-        Get user's subscription status with auto-expiry check
+        Check user status and auto-expire if past the date
         """
         row = await db.fetchrow(
             "SELECT plan_name, is_active, expires_at FROM subscriptions WHERE user_id = $1",
@@ -202,24 +168,14 @@ class PaymentService:
         )
         
         if not row:
-            return {
-                "user_id": user_id, 
-                "is_active": False,
-                "plan_name": None,
-                "expires_at": None
-            }
+            return {"user_id": user_id, "is_active": False, "plan_name": None, "expires_at": None}
         
-        # Check if expired
-        expires_at = row["expires_at"]
         is_active = row["is_active"]
+        expires_at = row["expires_at"]
         
         if expires_at and expires_at < datetime.utcnow():
             is_active = False
-            # Update DB if expired
-            await db.execute(
-                "UPDATE subscriptions SET is_active = FALSE WHERE user_id = $1", 
-                user_id
-            )
+            await db.execute("UPDATE subscriptions SET is_active = FALSE WHERE user_id = $1", user_id)
         
         return {
             "user_id": user_id,
@@ -230,11 +186,12 @@ class PaymentService:
     
     async def handle_webhook(self, payload: dict, signature: str, db: asyncpg.Connection):
         """
-        Handle Razorpay webhook events
+        Handle Razorpay webhook events for asynchronous payment success
         """
-        # Verify webhook signature
+        # Verify signature using compact JSON string
+        raw_payload = json.dumps(payload, separators=(',', ':'))
         is_valid = razorpay_client.utility.verify_webhook_signature(
-            json.dumps(payload), 
+            raw_payload, 
             signature, 
             settings.RAZORPAY_WEBHOOK_SECRET
         )
@@ -248,25 +205,19 @@ class PaymentService:
             payment = payload["payload"]["payment"]["entity"]
             order_id = payment["order_id"]
             
-            # Fetch order details
+            # Fetch metadata from order notes
             order = razorpay_client.order.fetch(order_id)
             user_id = int(order["notes"]["user_id"])
             email = order["notes"]["email"]
             plan_id = order["notes"]["plan_id"]
             amount = order["amount"]
             
-            # Update subscription
-            await self.update_subscription(
-                user_id, 
-                plan_id, 
-                db, 
-                payment["id"]
-            )
+            # Update Sub and Trigger Email
+            result = await self.update_subscription(user_id, plan_id, db, payment["id"])
+            expires_at = datetime.fromtimestamp(result["expires_at"])
+            await self.send_payment_email(email, plan_id, amount, payment["id"], expires_at)
             
-            # 🚀 SEND PAYMENT CONFIRMATION EMAIL VIA WEBHOOK
-            await self.send_payment_email(email, user_id, plan_id, amount, payment["id"])
-            
-            print(f"✅ Webhook: Subscription activated for user {user_id}")
+            print(f"✅ Webhook processed: Subscription active for user {user_id}")
         
         return {"event": event, "status": "processed"}
 
