@@ -7,11 +7,9 @@ from pathlib import Path
 # Determine base directory
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-# For production (Render) - use persistent disk path
-PROD_CHROMA_DIR = os.environ.get('CHROMA_PERSIST_DIR', '/opt/render/project/src/rag-service/chroma_store')
-
-# Only use production config
-CHROMA_DIR = PROD_CHROMA_DIR
+# Production-only configuration
+# Use persistent path on Render (can be /tmp or persistent disk)
+CHROMA_DIR = os.environ.get('CHROMA_PERSIST_DIR', '/tmp/chroma_store')
 
 print(f"📂 Using Chroma directory: {CHROMA_DIR}")
 print(f"🌍 Environment: Production")
@@ -35,7 +33,7 @@ if not os.listdir(CHROMA_DIR):
             
             # Verify extraction
             extracted_files = os.listdir(CHROMA_DIR)
-            print(f"📁 Extracted files: {extracted_files}")
+            print(f"📁 Extracted {len(extracted_files)} items: {extracted_files[:5]}")  # Show first 5 items
         except Exception as e:
             print(f"❌ Error extracting chroma data: {e}")
             raise
@@ -43,7 +41,7 @@ if not os.listdir(CHROMA_DIR):
         print(f"⚠️ No packaged chroma data found at {tar_path}")
         print("⚠️ Starting with empty chroma store")
 else:
-    print(f"✅ Chroma directory already contains data: {os.listdir(CHROMA_DIR)}")
+    print(f"✅ Chroma directory already contains {len(os.listdir(CHROMA_DIR))} items")
 
 # Initialize ChromaDB client
 try:
