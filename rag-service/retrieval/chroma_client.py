@@ -1,31 +1,27 @@
+# retrieval/chroma_client.py
 import os
 import chromadb
 import tarfile
-import shutil
 from pathlib import Path
 
 # Determine base directory
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-# For local development - use existing chroma_store
-LOCAL_CHROMA_DIR = os.path.join(BASE_DIR, "chroma_store")
+# For production (Render) - use persistent disk path
+PROD_CHROMA_DIR = os.environ.get('CHROMA_PERSIST_DIR', '/opt/render/project/src/rag-service/chroma_store')
 
-# For production (Render) - use persistent path
-PROD_CHROMA_DIR = os.environ.get('CHROMA_PERSIST_DIR', '/tmp/chroma_store')
-
-# Decide which directory to use based on environment
-IS_PRODUCTION = os.environ.get('ENVIRONMENT') == 'production'
-CHROMA_DIR = PROD_CHROMA_DIR if IS_PRODUCTION else LOCAL_CHROMA_DIR
+# Only use production config
+CHROMA_DIR = PROD_CHROMA_DIR
 
 print(f"📂 Using Chroma directory: {CHROMA_DIR}")
-print(f"🌍 Environment: {'Production' if IS_PRODUCTION else 'Development'}")
+print(f"🌍 Environment: Production")
 
 # Ensure directory exists
 os.makedirs(CHROMA_DIR, exist_ok=True)
 
-# For production: Check if we need to extract the packaged chroma data
-if IS_PRODUCTION and not os.listdir(CHROMA_DIR):
-    print("📦 Production: Chroma directory is empty, looking for packaged data...")
+# Check if we need to extract packaged chroma data
+if not os.listdir(CHROMA_DIR):
+    print("📦 Chroma directory is empty, looking for packaged data...")
     
     # Look for chroma_store.tar.gz in the backend root
     tar_path = os.path.join(BASE_DIR, "chroma_store.tar.gz")
@@ -36,11 +32,18 @@ if IS_PRODUCTION and not os.listdir(CHROMA_DIR):
             with tarfile.open(tar_path, 'r:gz') as tar:
                 tar.extractall(path=CHROMA_DIR)
             print(f"✅ Successfully extracted chroma data to {CHROMA_DIR}")
+            
+            # Verify extraction
+            extracted_files = os.listdir(CHROMA_DIR)
+            print(f"📁 Extracted files: {extracted_files}")
         except Exception as e:
             print(f"❌ Error extracting chroma data: {e}")
+            raise
     else:
         print(f"⚠️ No packaged chroma data found at {tar_path}")
         print("⚠️ Starting with empty chroma store")
+else:
+    print(f"✅ Chroma directory already contains data: {os.listdir(CHROMA_DIR)}")
 
 # Initialize ChromaDB client
 try:
@@ -55,18 +58,24 @@ def get_chroma_collection():
     try:
         collection = client.get_or_create_collection(name="books")
         
-        # Log collection stats (optional)
+        # Log collection stats
         count = collection.count()
         print(f"📚 Books collection has {count} embeddings")
+        
+        # If collection is empty but we have files, something is wrong
+        if count == 0 and os.listdir(CHROMA_DIR):
+            print(f"⚠️ Warning: Chroma directory has files but collection is empty!")
+            print(f"📁 Directory contents: {os.listdir(CHROMA_DIR)}")
         
         return collection
     except Exception as e:
         print(f"❌ Error getting chroma collection: {e}")
         raise
 
-# For debugging - print collection count on import
+# Initialize collection on import
 try:
     collection = get_chroma_collection()
     print(f"✅ ChromaDB ready with {collection.count()} book embeddings")
-except:
-    print("⚠️ ChromaDB collection not yet populated")
+except Exception as e:
+    print(f"⚠️ ChromaDB initialization error: {e}")
+    collection = None
