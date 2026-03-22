@@ -1,6 +1,7 @@
-from datetime import date , datetime
-from typing import List, Optional
-from pydantic import BaseModel
+from datetime import date, datetime
+from typing import List, Optional, Dict, Any
+from pydantic import BaseModel, field_validator
+import json
 
 
 class User(BaseModel):
@@ -53,4 +54,15 @@ class UserActivityResponse(BaseModel):
     rating: Optional[int] = None
     list_type: Optional[str] = None
     created_at: datetime
-    metadata: Optional[dict] = None
+    metadata: Optional[Dict[str, Any]] = None
+
+    @field_validator('metadata', mode='before')
+    @classmethod
+    def parse_metadata(cls, v):
+        """Parse metadata if it's a string"""
+        if isinstance(v, str):
+            try:
+                return json.loads(v)
+            except:
+                return {}
+        return v or {}
