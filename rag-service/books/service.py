@@ -6,7 +6,7 @@ from datetime import date
 
 from books.schemas import Book, RecommendedBook, GenreSection, UserBookResponse, RecommendedSectionsResponse
 from retrieval.neon_fetch import fetch_books_by_ids
-from retrieval.retriever import search_books
+from retrieval.retriever import retrieve_books
 from llm.gemini_client import ask_gemini
 
 class BookService:
@@ -381,7 +381,7 @@ Summary:"""
             print(f"🔎 Finding books similar to: {book_row['book_title']}")
             
             # Get MORE results from Chroma (3x limit) so we have enough to filter
-            search_results = search_books(query_text, top_k=limit * 3)
+            search_results = retrieve_books(query_text, top_k=limit * 3)
             
             if not search_results:
                 return await self._get_popular_fallback(limit)
@@ -551,7 +551,7 @@ Summary:"""
             
             # Get MANY results from Chroma (enough for all pages)
             total_needed = (page + 2) * limit
-            search_results = search_books(query_text, top_k=total_needed)
+            search_results = retrieve_books(query_text, top_k=total_needed)
             
             if not search_results:
                 return await self._get_popular_fallback(limit, offset)
@@ -658,7 +658,7 @@ Summary:"""
             print(f"🔎 Assistant searching for: {query}")
             
             # Get many results from Chroma
-            search_results = search_books(query, top_k=limit * 3)
+            search_results = retrieve_books(query, top_k=limit * 3)
             
             if not search_results:
                 return []
