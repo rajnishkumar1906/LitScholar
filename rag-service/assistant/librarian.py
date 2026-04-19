@@ -24,15 +24,17 @@ def clean_llm_output(text: str) -> str:
     cleaned_lines = []
     
     for line in lines:
-        # Remove markdown headers
-        if line.startswith('#') or line.startswith('---'):
+        # Remove markdown headers and thematic breaks
+        if line.strip().startswith('#') or line.strip().startswith('---') or line.strip().startswith('***'):
             continue
-        # Remove excessive bullet points
-        if line.strip().startswith('*') or line.strip().startswith('-'):
-            line = line.strip()[1:].strip()
-        cleaned_lines.append(line)
+        # Remove excessive bullet points but keep content
+        line = line.strip()
+        if line.startswith('*') or line.startswith('-'):
+            line = line[1:].strip()
+        if line:
+            cleaned_lines.append(line)
     
-    text = '\n'.join(cleaned_lines)
+    text = ' '.join(cleaned_lines)
     
     # Truncate if too long (max 300 characters for answers)
     if len(text) > 300:
@@ -128,14 +130,20 @@ USER: {user_question}
 Your brief answer:"""
 
     raw_answer = ask_gemini(prompt).strip()
+    print(f"DEBUG: raw_answer before cleaning: {raw_answer}")
     
     # Clean and truncate
     cleaned_answer = clean_llm_output(raw_answer)
+    print(f"DEBUG: cleaned_answer after cleaning: {cleaned_answer}")
     
     # Enforce maximum length
     if len(cleaned_answer) > max_length:
         cleaned_answer = cleaned_answer[:max_length] + "..."
     
+    # If the answer is still empty after cleaning, return a fallback
+    if not cleaned_answer:
+        cleaned_answer = raw_answer or "I'm sorry, I couldn't generate an answer for that."
+
     print(f"📚 Librarian answer generated ({len(cleaned_answer)} chars)")
     
     # Find which citations were actually used

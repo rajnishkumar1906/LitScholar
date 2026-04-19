@@ -1,5 +1,6 @@
 // src/services/books.js
 import { ragApi, authApi, handleResponse } from './api';
+import { allowClientTrack } from '../utils/trackRateLimit';
 
 const formatBook = (book) => {
   const genres = book.genres || book.book_details || "";
@@ -25,8 +26,8 @@ const formatBook = (book) => {
 };
 
 export const booksService = {
-  async searchBooks(query, topK = 10, isPremium = false) {
-    const endpoint = isPremium ? "/assistant/ask/premium" : "/assistant/ask";
+  async searchBooks(query, topK = 10) {
+    const endpoint = "/assistant/ask";
     const result = await handleResponse(
       ragApi.post(endpoint, { question: query, top_k: topK })
     );
@@ -79,10 +80,19 @@ export const booksService = {
   },
 
   async askFollowUp(question, books = []) {
-    const bookIds = books.map(b => b.id || b.book_id).filter(Boolean);
+    const bookIds = books.map(b => String(b.id || b.book_id)).filter(Boolean);
     const payload = { question };
     if (bookIds.length) payload.book_ids = bookIds;
-    return handleResponse(ragApi.post('/assistant/ask', payload));
+    const result = await handleResponse(ragApi.post('/assistant/ask', payload));
+    if (result.success) {
+      return {
+        success: true,
+        answer: result.data.answer,
+        books: (result.data.books || []).map(formatBook),
+        citations: result.data.citations || {}
+      };
+    }
+    return result;
   },
 
   async getRecommendations(type = 'for-you', limit = 8, page = 1) {
@@ -106,7 +116,21 @@ export const booksService = {
   },
 
   async trackBook(bookId) {
-    return handleResponse(ragApi.post(`/books/track/${bookId}`));
+    if (!allowClientTrack(bookId)) {
+      return { success: true, skipped: true };
+    }
+    try {
+      const response = await ragApi.post(`/books/track/${bookId}`);
+      return { success: true, data: response.data };
+    } catch (error) {
+      if (error.status === 429) {
+        return { success: true, skipped: true, rateLimited: true };
+      }
+      return {
+        success: false,
+        error: error.error || 'An unexpected error occurred',
+      };
+    }
   },
 
   async addUserBook(bookId, listType, rating = null, notes = null) {
@@ -117,6 +141,25 @@ export const booksService = {
 
   async finishBook(bookId) {
     return handleResponse(ragApi.post('/books/finish', { book_id: bookId }));
+  },
+
+  // Quiz methods
+  async generateQuiz(title, author) {
+    return handleResponse(ragApi.post('/quiz/generate', { title, author }));
+  },
+
+  async saveQuizScore(bookId, bookTitle, score, totalQuestions = 5, quizResults = null) {
+    return handleResponse(authApi.post('/users/quiz/score', {
+      book_id: bookId,
+      book_title: bookTitle,
+      score,
+      total_questions: totalQuestions,
+      quiz_results: quizResults
+    }));
+  },
+
+  async getQuizHistory(limit = 10) {
+    return handleResponse(authApi.get('/users/quiz/history', { params: { limit } }));
   },
 
   // ── User profile & activity (auth service — same base URL as authApi) ──────

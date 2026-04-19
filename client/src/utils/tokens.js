@@ -1,47 +1,47 @@
-// Token management using localStorage (with optional sessionStorage for more security)
-
-const ACCESS_TOKEN_KEY = 'litscholar_access_token';
-const REFRESH_TOKEN_KEY = 'litscholar_refresh_token';
+// Token management using cookies (was using localStorage)
+import { tokenCookies } from './cookies';
 
 export const tokenManager = {
   // Get access token
   getAccessToken: () => {
-    return localStorage.getItem(ACCESS_TOKEN_KEY);
+    return tokenCookies.getAccessToken();
   },
   
   // Get refresh token
   getRefreshToken: () => {
-    return localStorage.getItem(REFRESH_TOKEN_KEY);
+    return tokenCookies.getRefreshToken();
   },
   
   // Set both tokens
   setTokens: (accessToken, refreshToken) => {
     if (accessToken) {
-      localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
+      tokenCookies.setAccessToken(accessToken);
     }
     if (refreshToken) {
-      localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+      tokenCookies.setRefreshToken(refreshToken);
     }
   },
   
   // Set access token only
   setAccessToken: (token) => {
-    localStorage.setItem(ACCESS_TOKEN_KEY, token);
+    tokenCookies.setAccessToken(token);
   },
   
   // Set refresh token only
   setRefreshToken: (token) => {
-    localStorage.setItem(REFRESH_TOKEN_KEY, token);
+    tokenCookies.setRefreshToken(token);
   },
   
   // Clear all tokens
   clear: () => {
-    localStorage.removeItem(ACCESS_TOKEN_KEY);
-    localStorage.removeItem(REFRESH_TOKEN_KEY);
+    tokenCookies.clear();
+    // Also clear localStorage just in case of old data
+    localStorage.removeItem('litscholar_access_token');
+    localStorage.removeItem('litscholar_refresh_token');
   },
   
   // Check if authenticated
   isAuthenticated: () => {
-    return !!localStorage.getItem(ACCESS_TOKEN_KEY);
+    return !!tokenCookies.getAccessToken();
   }
 };

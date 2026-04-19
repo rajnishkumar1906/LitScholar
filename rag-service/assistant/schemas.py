@@ -21,3 +21,4 @@ class AssistantResponse(BaseModel):
     question: str
     answer: str
     books: List[BookResponse]
+    citations: dict | None = None

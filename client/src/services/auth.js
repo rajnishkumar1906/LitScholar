@@ -1,109 +1,18 @@
-// // src/services/auth.js - Authentication service
-// import { authApi, handleResponse } from './api';
-// import { tokenCookies } from '../utils/cookies';
-// import config from './config';
-
-// export const authService = {
-//   // Login user
-//   async login(email, password) {
-//     const result = await handleResponse(
-//       authApi.post('/auth/login', { email, password })
-//     );
-    
-//     if (result.success) {
-//       // Server sets HTTP-only cookies, but we track auth status
-//       tokenCookies.setTokens('authenticated', 'authenticated');
-//       return { success: true, data: result.data };
-//     }
-    
-//     return { success: false, error: result.error };
-//   },
-
-//   // Register user
-//   async register(email, password) {
-//     const result = await handleResponse(
-//       authApi.post('/auth/register', { email, password })
-//     );
-    
-//     if (result.success) {
-//       tokenCookies.setTokens('authenticated', 'authenticated');
-//       return { success: true, data: result.data };
-//     }
-    
-//     return { success: false, error: result.error };
-//   },
-
-//   // Google OAuth login
-//   googleLogin() {
-//     window.location.href = `${config.AUTH_API_URL}/auth/google/login`;
-//   },
-
-//   // Handle Google OAuth callback
-//   handleGoogleCallback() {
-//     const params = new URLSearchParams(window.location.search);
-//     const accessToken = params.get('access_token');
-//     const refreshToken = params.get('refresh_token');
-//     const error = params.get('error');
-
-//     if (error) {
-//       return { success: false, error };
-//     }
-
-//     if (accessToken) {
-//       // Store tokens in cookies
-//       tokenCookies.setTokens(accessToken, refreshToken || '');
-//       return { success: true };
-//     }
-    
-//     return { success: false, error: 'No access token received' };
-//   },
-
-//   // Logout user
-//   async logout() {
-//     const result = await handleResponse(
-//       authApi.post('/auth/logout', {})
-//     );
-    
-//     // Clear cookies regardless of API response
-//     tokenCookies.clear();
-    
-//     // Clear any other client-side storage
-//     localStorage.clear();
-//     sessionStorage.clear();
-    
-//     return result;
-//   },
-
-//   // Check if user is authenticated
-//   isAuthenticated() {
-//     return tokenCookies.hasAccessToken();
-//   },
-
-//   // Get current user
-//   async getCurrentUser() {
-//     // If no token, return early
-//     if (!tokenCookies.hasAccessToken()) {
-//       return { success: false, error: 'Not authenticated' };
-//     }
-    
-//     const result = await handleResponse(authApi.get('/users/me'));
-//     return result;
-//   },
-
-//   // Refresh token
-//   async refreshToken() {
-//     const result = await handleResponse(
-//       authApi.post('/auth/refresh', {})
-//     );
-//     return result;
-//   }
-// };
-
-
-// src/services/auth.js - Authentication service
-import { authApi, handleResponse } from './api';
+// src/services/auth.js - Authentication service (httpOnly cookie session + in-memory JWT for RAG)
+import {
+  authApi,
+  handleResponse,
+  setMemoryAccessToken,
+  getMemoryAccessToken,
+} from './api';
 import { tokenManager } from '../utils/tokens';
 import config from './config';
+
+function applyAuthResponseBody(data) {
+  if (data?.access_token) {
+    setMemoryAccessToken(data.access_token);
+  }
+}
 
 export const authService = {
   // Login user
@@ -113,11 +22,7 @@ export const authService = {
     );
     
     if (result.success) {
-      // Tokens come in response body, not cookies
-      const { access_token, refresh_token } = result.data;
-      if (access_token) {
-        tokenManager.setTokens(access_token, refresh_token);
-      }
+      applyAuthResponseBody(result.data);
       return { success: true, data: result.data };
     }
     
@@ -131,10 +36,7 @@ export const authService = {
     );
     
     if (result.success) {
-      const { access_token, refresh_token } = result.data;
-      if (access_token) {
-        tokenManager.setTokens(access_token, refresh_token);
-      }
+      applyAuthResponseBody(result.data);
       return { success: true, data: result.data };
     }
     
@@ -146,41 +48,31 @@ export const authService = {
     window.location.href = `${config.AUTH_API_URL}/auth/google/login`;
   },
 
-  // Handle Google OAuth callback (tokens come in URL fragment)
+  // Google OAuth, identity-service redirects with Set-Cookie (no tokens in URL)
   handleGoogleCallback() {
-    // Parse URL fragment (everything after #)
-    const hash = window.location.hash.substring(1);
-    const params = new URLSearchParams(hash);
-    
-    const accessToken = params.get('access_token');
-    const refreshToken = params.get('refresh_token');
+    const params = new URLSearchParams(window.location.search);
     const error = params.get('error');
-
     if (error) {
       return { success: false, error };
     }
-
-    if (accessToken) {
-      tokenManager.setTokens(accessToken, refreshToken || '');
-      // Clean up URL
+    if (params.get('oauth') === 'success') {
       window.history.replaceState({}, document.title, window.location.pathname);
       return { success: true };
     }
-    
-    return { success: false, error: 'No access token received' };
+    return { success: false, error: 'OAuth callback not completed' };
   },
 
   // Logout user
   async logout() {
-    const refreshToken = tokenManager.getRefreshToken();
-    
-    if (refreshToken) {
+    try {
       await handleResponse(
-        authApi.post('/auth/logout', { refresh_token: refreshToken })
+        authApi.post('/auth/logout')
       );
+    } catch (e) {
+      console.error('Logout API call failed:', e);
     }
     
-    // Clear tokens regardless of API response
+    setMemoryAccessToken(null);
     tokenManager.clear();
     
     // Clear any other client-side storage
@@ -190,41 +82,76 @@ export const authService = {
     return { success: true };
   },
 
-  // Check if user is authenticated
+  // Check if user is authenticated (legacy; prefer AppContext user after checkAuth)
   isAuthenticated() {
-    return tokenManager.isAuthenticated();
+    return !!getMemoryAccessToken();
   },
 
   // Get current user
   async getCurrentUser() {
-    // If no token, return early
-    if (!tokenManager.isAuthenticated()) {
-      return { success: false, error: 'Not authenticated' };
-    }
+    const result = await handleResponse(
+      authApi.get('/users/me')
+    );
     
-    const result = await handleResponse(authApi.get('/users/me'));
     return result;
   },
 
-  // Refresh token
+  // Refresh token (uses httpOnly refresh_token cookie)
   async refreshToken() {
-    const refreshToken = tokenManager.getRefreshToken();
-    if (!refreshToken) {
-      return { success: false, error: 'No refresh token' };
-    }
-    
     const result = await handleResponse(
-      authApi.post('/auth/refresh', { refresh_token: refreshToken })
+      authApi.post('/auth/refresh')
     );
     
     if (result.success && result.data.access_token) {
-      tokenManager.setTokens(
-        result.data.access_token,
-        result.data.refresh_token || refreshToken
-      );
+      applyAuthResponseBody(result.data);
       return { success: true };
     }
     
     return result;
+  },
+
+  /** After full page load, cookie session is valid but memory JWT is empty — refresh once for RAG Bearer. */
+  async ensureRagAccessToken() {
+    if (getMemoryAccessToken()) return { success: true };
+    return this.refreshToken();
+  },
+
+  // Forgot password
+  async forgotPassword(email) {
+    const result = await handleResponse(
+      authApi.post('/auth/forgot-password', { email })
+    );
+    
+    if (result.success) {
+      return { success: true, message: result.data.message };
+    }
+    
+    return { success: false, error: result.error };
+  },
+
+  // Verify OTP
+  async verifyOtp(email, otp) {
+    const result = await handleResponse(
+      authApi.post('/auth/verify-otp', { email, otp })
+    );
+    
+    if (result.success) {
+      return { success: true, message: result.data.message };
+    }
+    
+    return { success: false, error: result.error };
+  },
+
+  // Reset password with OTP
+  async resetPassword(email, otp, newPassword) {
+    const result = await handleResponse(
+      authApi.post('/auth/reset-password', { email, otp, new_password: newPassword })
+    );
+    
+    if (result.success) {
+      return { success: true, message: result.data.message };
+    }
+    
+    return { success: false, error: result.error };
   }
 };

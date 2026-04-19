@@ -6,7 +6,7 @@ from datetime import date
 
 from books.schemas import Book, RecommendedBook, GenreSection, UserBookResponse, RecommendedSectionsResponse
 from retrieval.neon_fetch import fetch_books_by_ids
-from retrieval.retriever import retrieve_books
+from retrieval.retriever import search_books
 from llm.gemini_client import ask_gemini
 
 class BookService:
@@ -71,8 +71,8 @@ class BookService:
                         break
             
             if not similar_book_ids:
-                print(f"No {source} recommendations found")
-                return []
+                print(f"No {source} recommendations found - returning popular fallback")
+                return await self._get_popular_fallback(limit)
             
             # Fetch book details
             books_data = await self.fetch_books_by_ids(similar_book_ids)
@@ -112,8 +112,9 @@ class BookService:
                     all_similar_ids.append(result["book_id"])
             
             if not all_similar_ids:
-                print(f"No {source} recommendations found")
-                return []
+                print(f"No {source} recommendations found - returning popular fallback")
+                page_index = offset // limit
+                return await self._get_popular_fallback(limit, offset=page_index * limit)
             
             # Apply pagination
             start_idx = offset
@@ -244,8 +245,8 @@ Summary:"""
             else:
                 # Insert new
                 result = await self.db.fetchrow("""
-                    INSERT INTO user_book_views(user_id, book_id, click_count, first_viewed, last_viewed)
-                    VALUES($1, $2, 1, NOW(), NOW())
+                    INSERT INTO user_book_views(user_id, book_id, click_count, last_viewed)
+                    VALUES($1, $2, 1, NOW())
                     RETURNING click_count
                 """, uid, bid)
                 click_count = result["click_count"]
@@ -381,7 +382,7 @@ Summary:"""
             print(f"🔎 Finding books similar to: {book_row['book_title']}")
             
             # Get MORE results from Chroma (3x limit) so we have enough to filter
-            search_results = retrieve_books(query_text, top_k=limit * 3)
+            search_results = search_books(query_text, top_k=limit * 3)
             
             if not search_results:
                 return await self._get_popular_fallback(limit)
@@ -551,7 +552,7 @@ Summary:"""
             
             # Get MANY results from Chroma (enough for all pages)
             total_needed = (page + 2) * limit
-            search_results = retrieve_books(query_text, top_k=total_needed)
+            search_results = search_books(query_text, top_k=total_needed)
             
             if not search_results:
                 return await self._get_popular_fallback(limit, offset)
@@ -658,7 +659,7 @@ Summary:"""
             print(f"🔎 Assistant searching for: {query}")
             
             # Get many results from Chroma
-            search_results = retrieve_books(query, top_k=limit * 3)
+            search_results = search_books(query, top_k=limit * 3)
             
             if not search_results:
                 return []

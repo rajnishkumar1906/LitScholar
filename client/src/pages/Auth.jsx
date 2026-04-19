@@ -26,12 +26,11 @@ export default function Auth() {
   const navigate = useNavigate();
   const { login, register, googleLogin, handleGoogleCallback, isAuthenticated } = useApp();
 
-  // Check for Google OAuth callback (tokens in URL) or existing auth
+  // Google OAuth: identity-service sets httpOnly cookies then redirects here with ?oauth=success
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get('access_token')) {
+    if (params.get('oauth') === 'success') {
       handleGoogleCallback();
-      window.history.replaceState({}, '', window.location.pathname);
       navigate('/dashboard', { replace: true });
       return;
     }
@@ -219,38 +218,46 @@ export default function Auth() {
 
             {isLogin && (
               <div className="flex items-center justify-between">
-                <label className="flex items-center">
+                <label className="flex items-center cursor-pointer">
                   <input
                     type="checkbox"
                     className="w-4 h-4 rounded border-gray-300 text-amber-800 focus:ring-amber-800"
                   />
-                  <span className="ml-2 text-m text-gray-100">Remember me</span>
+                  <span className="ml-2 text-sm text-gray-100">Remember me</span>
                 </label>
-                <a href="#" className="text-sm font-medium text-amber-800 hover:text-amber-900">
+                <button
+                  type="button"
+                  onClick={() => navigate('/forgot-password')}
+                  className="text-sm font-medium text-amber-800 hover:text-amber-900 transition-colors"
+                >
                   Forgot password?
-                </a>
+                </button>
               </div>
             )}
 
             {!isLogin && (
-              <div className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  className="w-4 h-4 rounded border-gray-300 text-amber-800 focus:ring-amber-800"
-                  required
-                />
-                <span className="text-gray-600">
-                  I agree to the{' '}
-                  <a href="#" className="text-amber-800 hover:underline">Terms</a> and{' '}
-                  <a href="#" className="text-amber-800 hover:underline">Privacy Policy</a>
-                </span>
+              <div className="flex items-start gap-2">
+                <div className="flex items-center h-5">
+                  <input
+                    type="checkbox"
+                    className="w-4 h-4 rounded border-gray-300 text-amber-800 focus:ring-amber-800"
+                    required
+                  />
+                </div>
+                <div className="text-sm">
+                  <span className="text-gray-100">
+                    I agree to the{' '}
+                    <a href="#" className="text-amber-800 hover:underline font-medium">Terms</a> and{' '}
+                    <a href="#" className="text-amber-800 hover:underline font-medium">Privacy Policy</a>
+                  </span>
+                </div>
               </div>
             )}
 
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-gradient-to-r from-amber-800 to-amber-900 text-white font-semibold rounded-xl hover:from-amber-900 hover:to-amber-950 disabled:opacity-50 transition-all group"
+              className="w-full flex items-center justify-center gap-2 py-3 px-4 mt-4 bg-gradient-to-r from-amber-800 to-amber-900 text-white font-semibold rounded-xl hover:from-amber-900 hover:to-amber-950 disabled:opacity-50 transition-all group shadow-lg"
             >
               {isLoading ? (
                 <>

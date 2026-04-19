@@ -54,7 +54,7 @@ export default function RecommendationDashboard({ onBookClick }) {
     setError(prev => ({ ...prev, forYou: '' }));
 
     try {
-      const result = await fetchForYouBooks(8, forceRefresh);
+      const result = await fetchForYouBooks(12, forceRefresh);
       if (!result?.success) {
         setError(prev => ({ ...prev, forYou: result?.error || 'Failed to load' }));
       }
@@ -72,7 +72,7 @@ export default function RecommendationDashboard({ onBookClick }) {
     setError(prev => ({ ...prev, popular: '' }));
 
     try {
-      const result = await fetchPopularBooks(8, forceRefresh);
+      const result = await fetchPopularBooks(12, forceRefresh);
       if (!result?.success) {
         setError(prev => ({ ...prev, popular: result?.error || 'Failed to load' }));
       }
@@ -90,7 +90,7 @@ export default function RecommendationDashboard({ onBookClick }) {
     setError(prev => ({ ...prev, genre: '' }));
 
     try {
-      const result = await fetchGenreBooks(4, forceRefresh);
+      const result = await fetchGenreBooks(6, forceRefresh);
       if (!result?.success) {
         setError(prev => ({ ...prev, genre: result?.error || 'Failed to load' }));
       }
@@ -112,7 +112,7 @@ export default function RecommendationDashboard({ onBookClick }) {
     }
 
     try {
-      const result = await fetchSimilarBooks(page, 8, forceRefresh);
+      const result = await fetchSimilarBooks(page, 12, forceRefresh);
       if (!result?.success && page === 1) {
         setError(prev => ({ ...prev, similar: result?.error || 'Failed to load' }));
       }
@@ -321,7 +321,7 @@ export default function RecommendationDashboard({ onBookClick }) {
             </div>
 
             {filteredBooks.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
                 {filteredBooks.map((book, idx) => (
                   <div
                     key={book.id || book.book_id}
@@ -350,7 +350,7 @@ export default function RecommendationDashboard({ onBookClick }) {
                     <button onClick={() => loadForYouBooks(true)} className="text-sm text-white/80 hover:text-white underline underline-offset-4">Refresh</button>
                   </div>
                   {forYouBooks.length > 0 ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                       {forYouBooks.map((book, idx) => (
                         <div key={book.id || book.book_id} onClick={() => handleBookClick(book)} className="cursor-pointer">
                           <BookCard {...book} index={idx} />
@@ -371,7 +371,7 @@ export default function RecommendationDashboard({ onBookClick }) {
                     <button onClick={() => loadPopularBooks(true)} className="text-sm text-white/80 hover:text-white underline underline-offset-4">Refresh</button>
                   </div>
                   {popularBooks.length > 0 ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                       {popularBooks.map((book, idx) => (
                         <div key={book.id || book.book_id} onClick={() => handleBookClick(book)} className="cursor-pointer">
                           <BookCard {...book} index={idx} />
@@ -394,7 +394,7 @@ export default function RecommendationDashboard({ onBookClick }) {
                           <span className="w-8 h-1 bg-amber-500 rounded-full" />
                           {section.genre}
                         </h2>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                           {section.books?.map((book, idx) => (
                             <div key={book.id || book.book_id} onClick={() => handleBookClick(book)} className="cursor-pointer">
                               <BookCard {...book} index={idx} />
@@ -404,7 +404,7 @@ export default function RecommendationDashboard({ onBookClick }) {
                       </section>
                     ))
                   ) : (
-                    <EmptyState message="No genre recommendations available." />
+                    <EmptyState message="Explore books by your favorite genres!" />
                   )}
                 </div>
               )}
@@ -413,12 +413,12 @@ export default function RecommendationDashboard({ onBookClick }) {
               {activeFilter === 'similar' && (
                 <section>
                   <div className="flex items-center justify-between mb-8">
-                    <h2 className="text-3xl font-bold text-white drop-shadow-sm">Similar Suggestions</h2>
-                    <button onClick={() => loadSimilarBooks(1, true)} className="text-sm text-white/80 hover:text-white underline underline-offset-4">Reset</button>
+                    <h2 className="text-3xl font-bold text-white drop-shadow-sm">Similar Reads</h2>
+                    <button onClick={() => loadSimilarBooks(1, true)} className="text-sm text-white/80 hover:text-white underline underline-offset-4">Refresh</button>
                   </div>
                   {similarBooks.length > 0 ? (
                     <>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                         {similarBooks.map((book, idx) => (
                           <div key={book.id || book.book_id} onClick={() => handleBookClick(book)} className="cursor-pointer">
                             <BookCard {...book} index={idx} />
@@ -445,7 +445,7 @@ export default function RecommendationDashboard({ onBookClick }) {
                       )}
                     </>
                   ) : (
-                    <EmptyState message="No similar suggestions found." />
+                    <EmptyState message="Find books similar to what you've enjoyed!" />
                   )}
                 </section>
               )}

@@ -1,10 +1,9 @@
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useState, useEffect, useRef } from 'react';
 import {
-  FaArrowLeft, FaBook, FaUser, FaLayerGroup, FaFileAlt,
-  FaCalendar, FaBuilding, FaBarcode, FaStar, FaRobot,
+  FaArrowLeft, FaBook, FaRobot,
   FaQuestionCircle, FaSpinner, FaCheckCircle, FaComments,
-  FaUserCircle, FaTrash
+  FaUserCircle, FaTrash, FaGamepad
 } from 'react-icons/fa';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
@@ -151,15 +150,26 @@ export default function BookDetail() {
     setError('');
 
     try {
+      console.log('DEBUG: Sending question to AI:', question);
       const result = await askFollowUp(question, [book]);
+      console.log('DEBUG: AI response received:', result);
       
       if (result.success) {
+        // Map citations to the actual book objects for easier UI display
+        const citedBooks = [];
+        if (result.citations && Object.keys(result.citations).length > 0) {
+          Object.values(result.citations).forEach(citedId => {
+            const citedBook = result.books.find(b => String(b.id) === String(citedId));
+            if (citedBook) citedBooks.push(citedBook);
+          });
+        }
+
         // Add AI response to chat
         const aiMessage = {
           id: (Date.now() + 1).toString(),
           type: 'ai',
-          message: result.answer,
-          citations: result.citations || [],
+          message: result.answer || "I found some information, but couldn't generate a specific answer.",
+          citations: citedBooks.length > 0 ? citedBooks : (result.books || []),
           timestamp: new Date().toISOString()
         };
         setChatHistory(prev => [...prev, aiMessage]);
@@ -285,6 +295,15 @@ export default function BookDetail() {
           </button>
           
           <div className="flex gap-3">
+            {/* Take Quiz Button */}
+            <button
+              onClick={() => navigate(`/quiz/${bookId}`, { state: { book } })}
+              className="px-6 py-3 rounded-xl font-medium flex items-center gap-2 bg-white text-amber-800 border border-amber-200 hover:bg-amber-50 transition-all shadow-sm"
+            >
+              <FaGamepad className="w-4 h-4" />
+              Take Quiz
+            </button>
+
             {/* Ask AI Button */}
             <button
               onClick={toggleFollowUp}
@@ -518,8 +537,8 @@ export default function BookDetail() {
         {/* You might also like section */}
         <div className="mt-12">
           <h2 className="text-3xl font-bold text-white mb-6">You might also like</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {[1, 2, 3, 4].map((i) => (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
               <div
                 key={i}
                 className="bg-white/95 backdrop-blur-sm rounded-xl shadow-md border border-gray-200 p-4 hover:shadow-xl transition-all cursor-pointer transform hover:-translate-y-1"

@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import {
   FaUser, FaEnvelope, FaBook, FaHistory, FaHeart,
-  FaCog, FaSignOutAlt, FaCamera, FaSpinner, FaCalendarAlt
+  FaCog, FaSignOutAlt, FaCamera, FaSpinner, FaCalendarAlt, FaTrophy, FaTimes, FaCheckCircle, FaTimesCircle
 } from 'react-icons/fa';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
@@ -17,7 +17,8 @@ export default function Profile() {
     loadProfile,
     updateProfile,
     fetchUserBooks,
-    fetchUserActivity
+    fetchUserActivity,
+    getQuizHistory
   } = useApp();
 
   const [isEditing, setIsEditing] = useState(false);
@@ -45,27 +46,32 @@ export default function Profile() {
 
   const [readingHistory, setReadingHistory] = useState([]);
   const [recentActivities, setRecentActivities] = useState([]);
+  const [quizHistory, setQuizHistory] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [selectedQuiz, setSelectedQuiz] = useState(null);
 
-  // Fetch user's books and activity
+  // Fetch user's books, activity, and quiz history
   const fetchUserBooksAndActivity = async () => {
     if (!user) return;
 
     setLoadingHistory(true);
     try {
-      const [booksRes, activityRes] = await Promise.all([
-        fetchUserBooks('finished', 5),
-        fetchUserActivity(5)
+      const [booksRes, activityRes, quizRes] = await Promise.all([
+        fetchUserBooks('finished', 6),
+        fetchUserActivity(6),
+        getQuizHistory(6)
       ]);
 
       if (booksRes.success) {
-        console.log("📚 Reading history:", booksRes.books);
         setReadingHistory(booksRes.books || []);
       }
       
       if (activityRes.success) {
-        console.log("📋 Recent activities:", activityRes.activities);
         setRecentActivities(activityRes.activities || []);
+      }
+
+      if (quizRes.success) {
+        setQuizHistory(quizRes.data || []);
       }
     } catch (error) {
       console.error('Error fetching user data:', error);
@@ -474,6 +480,137 @@ export default function Profile() {
             )}
           </div>
         </div>
+
+        {/* Quiz History Section */}
+        <div className="mt-8 bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-6">
+          <h2 className="text-xl font-semibold text-gray-800 mb-6 flex items-center gap-2">
+            <FaTrophy className="w-5 h-5 text-amber-700" />
+            Quiz History
+          </h2>
+          {loadingHistory ? (
+            <div className="flex justify-center py-8">
+              <FaSpinner className="w-8 h-8 text-amber-800 animate-spin" />
+            </div>
+          ) : quizHistory.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {quizHistory.map((quiz) => (
+                <div 
+                  key={quiz.id} 
+                  onClick={() => setSelectedQuiz(quiz)}
+                  className="p-4 rounded-xl bg-white/50 border border-amber-100 shadow-sm flex items-center gap-4 group hover:bg-white/80 transition-all duration-300 cursor-pointer"
+                >
+                  <div className="w-12 h-12 rounded-lg bg-amber-50 flex items-center justify-center text-amber-800 font-bold text-lg group-hover:scale-110 transition-transform">
+                    {quiz.score}/{quiz.total_questions}
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-bold text-gray-900 line-clamp-1">{quiz.book_title}</h3>
+                    <p className="text-xs text-gray-500">
+                      {new Date(quiz.created_at).toLocaleDateString()} at {new Date(quiz.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <div className={`text-sm font-bold ${quiz.score >= 4 ? 'text-green-600' : quiz.score >= 3 ? 'text-amber-600' : 'text-red-600'}`}>
+                      {Math.round((quiz.score / quiz.total_questions) * 100)}%
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-gray-500 text-center py-8 bg-gray-50/50 rounded-xl border border-dashed border-gray-300">
+              No quizzes taken yet. Visit a book page to start a quiz!
+            </p>
+          )}
+        </div>
+
+        {/* Quiz Details Modal */}
+        {selectedQuiz && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <div className="bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col animate-fadeIn">
+              {/* Modal Header */}
+              <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-amber-50/50">
+                <div>
+                  <h2 className="text-2xl font-black text-gray-900 leading-tight">{selectedQuiz.book_title}</h2>
+                  <p className="text-sm text-gray-600">Quiz taken on {new Date(selectedQuiz.created_at).toLocaleDateString()}</p>
+                </div>
+                <button 
+                  onClick={() => setSelectedQuiz(null)}
+                  className="p-2 hover:bg-gray-200 rounded-full transition-colors"
+                >
+                  <FaTimes className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+
+              {/* Modal Content */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-8">
+                {/* Score Summary */}
+                <div className="flex items-center justify-between p-6 bg-gradient-to-r from-amber-800 to-amber-900 rounded-2xl text-white shadow-lg">
+                  <div className="flex items-center gap-4">
+                    <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center">
+                      <FaTrophy className="w-8 h-8 text-amber-300" />
+                    </div>
+                    <div>
+                      <p className="text-amber-200 text-sm font-bold uppercase tracking-wider">Final Score</p>
+                      <h3 className="text-3xl font-black">{selectedQuiz.score} / {selectedQuiz.total_questions}</h3>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-amber-200 text-sm font-bold uppercase tracking-wider">Percentage</p>
+                    <h3 className="text-3xl font-black">{Math.round((selectedQuiz.score / selectedQuiz.total_questions) * 100)}%</h3>
+                  </div>
+                </div>
+
+                {/* Question Details */}
+                <div className="space-y-6">
+                  {selectedQuiz.quiz_results && selectedQuiz.quiz_results.length > 0 ? (
+                    selectedQuiz.quiz_results.map((q, idx) => (
+                      <div key={idx} className="p-5 rounded-2xl bg-gray-50 border border-gray-100 shadow-sm space-y-4">
+                        <p className="font-bold text-gray-900 text-lg leading-relaxed">{idx + 1}. {q.question}</p>
+                        <div className="space-y-2">
+                          {q.options.map((option, oIdx) => {
+                            const isUserAnswer = q.user_answer === option;
+                            const isCorrect = option === q.correct_answer;
+                            
+                            let style = "bg-white border-gray-200 text-gray-600 opacity-60";
+                            if (isCorrect) style = "bg-green-50 border-green-500 text-green-800 font-bold ring-2 ring-green-500/20 opacity-100 shadow-sm";
+                            else if (isUserAnswer && !isCorrect) style = "bg-red-50 border-red-500 text-red-800 font-bold ring-2 ring-red-500/20 opacity-100 shadow-sm";
+
+                            return (
+                              <div key={oIdx} className={`p-3 rounded-xl border flex justify-between items-center transition-all ${style}`}>
+                                <span className="flex items-center gap-3">
+                                  <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs border ${isCorrect ? 'bg-green-500 text-white border-green-500' : isUserAnswer ? 'bg-red-500 text-white border-red-500' : 'bg-transparent border-gray-300'}`}>
+                                    {String.fromCharCode(65 + oIdx)}
+                                  </span>
+                                  {option}
+                                </span>
+                                {isCorrect && <FaCheckCircle className="text-green-600" />}
+                                {isUserAnswer && !isCorrect && <FaTimesCircle className="text-red-600" />}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-8">
+                      <p className="text-gray-500">Detailed results are not available for this quiz.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="p-6 border-t border-gray-100 bg-gray-50/50 flex justify-end">
+                <button 
+                  onClick={() => setSelectedQuiz(null)}
+                  className="px-8 py-3 bg-gray-900 text-white font-bold rounded-xl hover:bg-gray-800 transition-all shadow-md active:scale-95"
+                >
+                  Close Results
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Reading Goal Progress */}
         <div className="mt-8 bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-6">

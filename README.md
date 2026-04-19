@@ -8,12 +8,21 @@ LitScholar is a modern, full-stack microservices application that transforms boo
 
 - **Conversational Discovery**: Ask "I want a book like Interstellar but with more focus on biology" and get reasoned results with citations
 - **Semantic Search**: Powered by sentence-transformers and ChromaDB for deep contextual relevance
-- **Microservices Architecture**: Four decoupled backend services for maximum scalability
+- **Microservices Architecture**: Decoupled backend services for maximum scalability
 - **Personalized Dashboard**: "For You" recommendations based on your viewing history
-- **Real Email Notifications**: Welcome emails, login alerts, and payment confirmations
-- **Premium Tier**: Razorpay integration for monthly/yearly/lifetime subscriptions
+- **Integrated Email**: Identity service handles welcome emails and login alerts directly via SMTP
 - **AI Librarian Chat**: Context-aware conversations about books with follow-up questions
 - **Google OAuth**: Seamless authentication with Google accounts
+- **Splash screen**: Session-scoped welcome overlay on first load (matches global background & glass UI)
+
+---
+
+## 🔐 Authentication & Identity (cookies + microservices)
+
+- The **identity service** (formerly auth-service) sets **httpOnly** cookies (`access_token`, `refresh_token`) on login, register, token refresh, and Google OAuth (redirect returns with `Set-Cookie`, no tokens in the URL).
+- The **identity service** also handles all **Email notifications** (SMTP) for user lifecycle events (welcome, login alerts, password resets).
+- The **React app** calls the identity API with **`credentials: included`** / Axios **`withCredentials: true`** so the browser sends cookies automatically.
+- Other services (e.g. **RAG** on a different port) do not receive auth cookies cross-origin. The client stores the access JWT **in memory only** (from JSON responses) for **`Authorization: Bearer`** to those APIs—**not** in `localStorage`. Logout clears memory and hits **`POST /auth/logout`** to invalidate the refresh token server-side.
 
 ---
 
@@ -32,8 +41,7 @@ LitScholar is a modern, full-stack microservices application that transforms boo
 - ChromaDB (Vector Database)
 - Google Gemini API
 - JWT with HTTP-only cookies
-- Razorpay SDK
-- SMTP integration
+- SMTP integration (Integrated into Identity Service)
 
 ---
 
@@ -61,66 +69,22 @@ LitScholar is a modern, full-stack microservices application that transforms boo
 │                                                                           │
 │  ┌────────────────────────────────────────────────────────────────────┐   │
 │  │                                                                    │   │
-│  │  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐          │   │
-│  │  │   Auth       │    │     RAG      │    │   Payment    │          │   │
-│  │  │   Service    │    │   Service    │    │   Service    │          │   │
-│  │  │   :8000      │    │   :8001      │    │   :8003      │          │   │
-│  │  │              │    │              │    │              │          │   │
-│  │  │ • JWT Auth   │    │ • Gemini AI  │    │ • Razorpay   │          │   │
-│  │  │ • Google OAuth│    │ • ChromaDB  │    │ • Subscriptions│        │   │
-│  │  │ • Users      │    │ • Semantic   │    │ • Plans      │          │   │
-│  │  │              │    │   Search     │    │              │          │   │
-│  │  └──────┬───────┘    └──────┬───────┘    └──────┬───────┘          │   │
-│  │         │                   │                   │                  │   │
+│  │  ┌──────────────┐    ┌──────────────┐                              │   │
+│  │  │   Identity   │    │     RAG      │                              │   │
+│  │  │   Service    │    │   Service    │                              │   │
+│  │  │   :8000      │    │   :8001      │                              │   │
+│  │  │              │    │              │                              │   │
+│  │  │ • JWT Auth   │    │ • Gemini AI  │                              │   │
+│  │  │ • Google OAuth│    │ • ChromaDB  │                              │   │
+│  │  │ • Users      │    │ • Semantic   │                              │   │
+│  │  │ • Email SMTP │    │   Search     │                              │   │
+│  │  └──────┬───────┘    └──────┬───────┘                              │   │
+│  │         │                   │                                      │   │
 │  │         └───────────────────┼───────────────────┘                  │   │
 │  │                             │                                      │   │
-│  │                    ┌────────▼────────┐                             │   │
-│  │                    │   Email Service │                             │   │
-│  │                    │     :8002       │                             │   │
-│  │                    │                 │                             │   │
-│  │                    │  • SMTP         │                             │   │
-│  │                    │  • Templates    │                             │   │
-│  │                    │  • Notifications│                             │   │
-│  │                    └─────────────────┘                             │   │
-│  │                                                                    │   │
 │  └────────────────────────────────────────────────────────────────────┘   │
 │                                   │                                       │
 └───────────────────────────────────────────────────────────────────────────┘
-                                    │
-            ┌───────────────────────┼───────────────────────┐
-            ▼                       ▼                       ▼
-┌──────────────────────┐ ┌─────────────────────┐  ┌───────────────────── ┐
-│   EXTERNAL           │ │   EXTERNAL          │  │   EXTERNAL           │
-│   SERVICES           │ │   SERVICES          │  │   SERVICES           │
-│                      │ │                     │  │                      │
-│  ┌───────────────┐   │ │  ┌───────────────┐  │  │  ┌───────────────┐   │
-│  │    Google     │   │ │  │   Razorpay    │  │  │  │    Gmail      │   │
-│  │    OAuth      │◀─┘    │   Gateway      │◀─┘ │  │    SMTP       │◀─┘
-│  └───────────────┘     │  └───────────────┘     │  └───────────────┘   │
-│                        │                        │                      │
-└────────────────────────┴────────────────────────┴──────────────────────┘
-                                    │
-                                    ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                             DATA LAYER                                      │
-│                                                                             │
-│                    ┌─────────────────────────┐                              │
-│                    │     Neon PostgreSQL     │                              │
-│                    │   (Serverless DB)       │                              │
-│                    │  - users                │                              │
-│                    │  - subscriptions        │                              │
-│                    │  - email_logs           │                              │
-│                    │  - refresh_tokens       │                              │
-│                    └────────────┬────────────┘                              │
-│                                 │                                           │
-│                    ┌────────────▼────────────┐                              │
-│                    │        ChromaDB         │                              │
-│                    │    (Vector Database)    │                              │
-│                    │  - book embeddings      │                              │
-│                    │  - semantic search      │                              │
-│                    └─────────────────────────┘                              │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -129,7 +93,7 @@ LitScholar is a modern, full-stack microservices application that transforms boo
 
 ```
 ┌──────────┐    1. Login/Register     ┌──────────┐    2. Verify     ┌──────────┐
-│  React   │ ───────────────────────> │  Auth    │ ───────────────> │  Neon    │
+│  React   │ ───────────────────────> │ Identity │ ───────────────> │  Neon    │
 │  Frontend│ <─────────────────────── │  Service │ <─────────────── │   DB     │
 └──────────┘    7. JWT + Cookies      └──────────┘    3. User Data  └──────────┘
       │                                    
@@ -138,27 +102,6 @@ LitScholar is a modern, full-stack microservices application that transforms boo
                                            │  Service │ <─────────────  │          │
       ┌──────────────────────────────────< │          │    6. Embeddings└──────────┘
       │ 8. Results + AI Response           └──────────┘
-      │
-      │ 9. Upgrade to Premium              ┌──────────┐   10. Create   ┌──────────┐
-      └──────────────────────────────────> │ Payment  │ ─────────────> │ Razorpay │
-                                           │ Service  │ <───────────── │ Gateway  │
-      ┌──────────────────────────────────< └──────────┘   11. Order ID └──────────┘
-      │ 12. Payment Success
-      │
-      │                                    ┌──────────┐   13. Webhook  ┌──────────┐
-      └──────────────────────────────────> │ Payment  │ <───────────── │ Razorpay │
-                                           │ Service  │    Payment     │ Gateway  │
-                                           └────┬─────┘    Confirmed   └──────────┘
-                                                │
-                                           ┌────▼─────┐   14. Update   ┌──────────┐
-                                           │ Payment  │ ─────────────> │  Neon    │
-                                           │ Service  │    Subscription│   DB     │
-                                           └────┬─────┘ <───────────── └──────────┘
-                                                │
-                                           ┌────▼─────┐   15. Trigger  ┌──────────┐
-                                           │  Email   │ ─────────────> │  SMTP    │
-                                           │ Service  │    Confirmation│  Gmail   │
-                                           └──────────┘ <───────────── └──────────┘
 ```
 
 ---
@@ -168,10 +111,8 @@ LitScholar is a modern, full-stack microservices application that transforms boo
 | Service | Talks To | Purpose |
 |---------|----------|---------|
 | **Frontend** | All Services | User interface & API calls |
-| **Auth** | NeonDB, Google OAuth | Authentication & user data |
+| **Identity** | NeonDB, Google OAuth, SMTP | Auth, user data, & emails |
 | **RAG** | NeonDB, ChromaDB, Gemini | Book search & AI responses |
-| **Payment** | NeonDB, Razorpay | Subscriptions & payments |
-| **Email** | NeonDB, Gmail SMTP | Notifications & receipts |
 
 ---
 
@@ -182,18 +123,15 @@ LitScholar is a modern, full-stack microservices application that transforms boo
 - Node.js 18+
 - Neon DB Account
 - Gemini API Key
-- Razorpay Test Credentials
 
 ### One-Line Setup
 ```bash
 git clone https://github.com/rajnishk71249/litscholar.git
 cd litscholar
 
-# Start all services (requires 4 terminals)
-cd auth-service && python run.py
+# Start all services (requires 2 backend terminals)
+cd identity-service && python run.py
 cd rag-service && python run.py
-cd email-service && python run.py
-cd payment-service && python run.py
 
 # Start frontend
 cd client && npm install && npm run dev
@@ -207,7 +145,6 @@ Visit `http://localhost:5173` 🚀
 
 ✅ **Modern Architecture** - Microservices with FastAPI  
 ✅ **Production Ready** - JWT, cookies, webhooks, rate limiting  
-✅ **Real Payments** - Razorpay integration with webhooks  
 ✅ **AI-Powered** - Gemini API with RAG architecture  
 ✅ **Scalable** - Serverless DB, stateless services  
 ✅ **Beautiful UI** - Glassmorphism, smooth animations  
@@ -218,11 +155,8 @@ Visit `http://localhost:5173` 🚀
 
 ```
 LitScholar/
-├── client/           # React Frontend
-├── auth-service/     # JWT, OAuth, Users
-├── rag-service/      # AI, Search, Books
-├── email-service/    # SMTP, Templates
-├── payment-service/  # Razorpay, Subscriptions
-└── data_processing/  # Embedding pipeline
+├── client/           # React + Vite (splash, dashboard, book detail)
+├── identity-service/ # JWT, httpOnly cookies, OAuth, users, Email SMTP
+├── rag-service/      # AI, Chroma, books API
+└── data_processing/  # Embedding pipeline (optional)
 ```
-

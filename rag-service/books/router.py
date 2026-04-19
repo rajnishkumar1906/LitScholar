@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from typing import List, Optional
 import asyncpg
 
@@ -15,6 +15,7 @@ from books.schemas import (
 from books.service import BookService
 from core.db import get_async_db
 from core.security import get_current_user_with_db
+from core.book_track_rate_limit import check_book_track_rate_limit
 
 router = APIRouter()
 
@@ -53,6 +54,7 @@ async def get_book_summary(
 
 @router.get("/recommended/for-you")
 async def get_for_you_recommendations(
+    request: Request,
     limit: int = Query(8, ge=1, le=20),
     current_user: dict = Depends(get_current_user_with_db),
     service: BookService = Depends(get_book_service),
@@ -73,6 +75,7 @@ async def get_for_you_recommendations(
 
 @router.get("/recommended/popular")
 async def get_popular_recommendations(
+    request: Request,
     limit: int = Query(8, ge=1, le=20),
     current_user: dict = Depends(get_current_user_with_db),
     service: BookService = Depends(get_book_service),
@@ -92,6 +95,7 @@ async def get_popular_recommendations(
 
 @router.get("/recommended/by-genre")
 async def get_genre_recommendations(
+    request: Request,
     limit: int = Query(4, ge=1, le=10),
     books_per_genre: int = Query(4, ge=1, le=8),
     current_user: dict = Depends(get_current_user_with_db),
@@ -113,6 +117,7 @@ async def get_genre_recommendations(
 
 @router.get("/recommended/similar", response_model=PaginatedResponse)
 async def get_similar_recommendations(
+    request: Request,
     page: int = Query(1, ge=1),
     limit: int = Query(8, ge=1, le=20),
     current_user: dict = Depends(get_current_user_with_db),
@@ -157,6 +162,7 @@ async def get_similar_recommendations(
 
 @router.get("/recommended/sections", response_model=RecommendedSectionsResponse)
 async def get_all_recommendation_sections(
+    request: Request,
     current_user: dict = Depends(get_current_user_with_db),
     service: BookService = Depends(get_book_service),
 ):
@@ -182,10 +188,12 @@ async def get_all_recommendation_sections(
 @router.post("/track/{book_id}", response_model=TrackBookResponse)
 async def track_book_view(
     book_id: str,
+    request: Request,
     current_user: dict = Depends(get_current_user_with_db),
     service: BookService = Depends(get_book_service),
 ):
     """Track user book view"""
+    check_book_track_rate_limit(current_user["id"], book_id)
     try:
         # ✅ current_user["id"] is already int, no conversion needed
         result = await service.track_book_view(current_user["id"], book_id)
@@ -197,6 +205,7 @@ async def track_book_view(
 @router.post("/user/books", response_model=dict)
 async def add_to_user_books(
     book_data: UserBookCreate,
+    request: Request,
     current_user: dict = Depends(get_current_user_with_db),
     service: BookService = Depends(get_book_service),
 ):
@@ -216,6 +225,7 @@ async def add_to_user_books(
 
 @router.get("/user/books", response_model=List[UserBookResponse])
 async def get_user_books(
+    request: Request,
     list_type: Optional[str] = Query(None, regex="^(wishlist|reading|finished)$"),
     limit: int = Query(50, ge=1, le=100),
     current_user: dict = Depends(get_current_user_with_db),
@@ -236,6 +246,7 @@ async def get_user_books(
 @router.post("/finish")
 async def mark_book_finished(
     payload: FinishBookRequest,
+    request: Request,
     current_user: dict = Depends(get_current_user_with_db),
     service: BookService = Depends(get_book_service),
 ):
@@ -243,22 +254,25 @@ async def mark_book_finished(
     Mark a book as finished for the current user.
     Idempotent: if it's already in the finished list, returns success.
     """
+    print(f"[DEBUG] User {current_user['id']} finishing book {payload.book_id}")
     try:
         result = await service.add_user_book(
-            user_id=current_user["id"],  # ✅ FIXED: Removed str() conversion
+            user_id=current_user["id"],
             book_id=payload.book_id,
             list_type="finished",
             rating=None,
             notes=None,
         )
-
+        print(f"[DEBUG] Result: {result}")
         # Treat "already finished" as success so the button doesn't error
         if not result.get("success") and "already in finished" in result.get("message", "").lower():
             return {"success": True, "message": "Book already marked as finished"}
 
         return result
     except Exception as e:
-        print(f"Error marking book as finished: {e}")
+        import traceback
+        print(f"❌ Error marking book as finished: {e}")
+        print(traceback.format_exc())
         return {"success": False, "message": str(e)}
 
 # ============ DEBUG ENDPOINTS ============
