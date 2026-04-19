@@ -5,70 +5,120 @@
 # --- Environment variables (CRITICAL) ---
 .env
 .env.*
-**/ .env
-**/ .env.*
-
-# --- Python ---
-__pycache__/
-*.py[cod]
-*.pyo
-*.pyd
-*.egg-info/
-.eggs/
+**/.env
+**/.env.*
 .venv/
 venv/
 ENV/
 env/
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.pyo
+*.pyd
+*.egg
+*.egg-info/
+.eggs/
 Lib/
 site-packages/
-
-# --- Python tooling / cache ---
 build/
 dist/
+downloads/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+.python-version
+
+# --- Testing & Coverage ---
 .pytest_cache/
 .mypy_cache/
 .coverage
+.coverage.*
 htmlcov/
 .cache/
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.nox/
+.tox/
 
-# --- OS files ---
-.DS_Store
-Thumbs.db
-desktop.ini
-*.swp
-*.swo
+# --- Jupyter Notebook ---
+.ipynb_checkpoints
+*/.ipynb_checkpoints/*
 
-# --- Logs ---
-*.log
-logs/
-
-# --- ML Models Cache (Keep these ignored) ---
-torch_cache/
-sentence_transformers/
-hf_cache/
-huggingface/
-
-# --- Frontend ---
+# --- Frontend (React/Vite) ---
 node_modules/
+**/node_modules/
 dist/
+dist-ssr/
 build/
+*.local
+.eslintcache
+.stylelintcache
+.parcel-cache
 .next/
+.nuxt/
+.output/
+.vercel/
+.turbo/
+.vite/
 npm-debug.log*
 yarn-debug.log*
 pnpm-debug.log*
 
-# --- VS Code / IDE ---
+# --- OS & IDE ---
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+*.swp
+*.swo
 .vscode/
+!.vscode/extensions.json
 .idea/
 .trae/
+*.sublime-project
+*.sublime-workspace
 
-# --- Local Data & Temp ---
-data/books_clean.csv
+# --- Logs ---
+*.log
+logs/
+*.out
+
+# --- ML Models & Large Assets ---
+torch_cache/
+sentence_transformers/
+hf_cache/
+huggingface/
+models/
+*.bin
+*.pt
+*.pth
+*.onnx
+
+# --- Local Data & Vector Stores ---
+# Ignore local indices and databases that are generated
+**/chroma_store/
+**/faiss_store/
+*.index
+*.sqlite3
 data/temp/
 *.tmp
-*.tiff
-*.png~
-*.jpg~
+
+# Allow specific raw data if needed, but ignore cleaned/temp versions
+data/*.csv
+!data/book_raw.csv
+data/books_clean.csv
 
 # --- Docker ---
 docker-compose.override.yml
+.docker/
