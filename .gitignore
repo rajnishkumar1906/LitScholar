@@ -114,6 +114,15 @@ models/
 data/temp/
 *.tmp
 
+# --- Preprocessing & Scripts ---
+FAISS_data_preprocessing/
+data_processing/
+create_books_schema.py
+create_neon_schema.py
+create_rag_schema.py
+create_reset_table.py
+pipeline_checks.py
+
 # Allow specific raw data if needed, but ignore cleaned/temp versions
 data/*.csv
 !data/book_raw.csv
