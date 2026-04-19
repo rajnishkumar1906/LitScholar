@@ -129,9 +129,16 @@ LitScholar is a modern, full-stack microservices application that transforms boo
 git clone https://github.com/rajnishk71249/litscholar.git
 cd litscholar
 
+# Create and activate global virtual environment
+python -m venv venv
+.\venv\Scripts\activate
+
+# Install all dependencies
+pip install -r identity-service/requirements.txt -r rag-service/requirements.txt
+
 # Start all services (requires 2 backend terminals)
-cd identity-service && python run.py
-cd rag-service && python run.py
+cd identity-service && ..\venv\Scripts\python.exe run.py
+cd rag-service && ..\venv\Scripts\python.exe run.py
 
 # Start frontend
 cd client && npm install && npm run dev
