@@ -11,6 +11,10 @@ async def get_pool() -> asyncpg.Pool:
     global _pool
 
     if _pool is None:
+        if not settings.DB_URL_NEON:
+            print("❌ DB_URL_NEON is not set. Please check your .env file or environment variables.")
+            raise ValueError("Missing DB_URL_NEON configuration")
+
         try:
             print("🔌 Creating Neon DB connection pool...")
             
@@ -20,7 +24,7 @@ async def get_pool() -> asyncpg.Pool:
                 min_size=1,
                 max_size=5,
                 command_timeout=60,
-                ssl='require' if 'neon.tech' in settings.DB_URL_NEON else 'prefer'
+                ssl='require' if settings.DB_URL_NEON and 'neon.tech' in str(settings.DB_URL_NEON) else 'prefer'
             )
             
             # Test connection with timeout

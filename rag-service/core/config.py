@@ -5,7 +5,7 @@ from typing import List, Optional, Union
 
 class Settings(BaseSettings):
     # Database
-    DB_URL_NEON: str
+    DB_URL_NEON: str = ""
 
     # JWT Settings (keep for potential internal use, but rag-service won't decode)
     JWT_SECRET: str = "dev-secret-change-this-in-production"

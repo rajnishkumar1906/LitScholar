@@ -5,7 +5,7 @@ from typing import List, Optional, Dict, Any
 from datetime import date
 
 from books.schemas import Book, RecommendedBook, GenreSection, UserBookResponse, RecommendedSectionsResponse
-from retrieval.neon_fetch import fetch_books_by_ids
+from retrieval.neon_fetch import fetch_books_by_ids as fetch_from_neon
 from retrieval.retriever import search_books
 from llm.gemini_client import ask_gemini
 
@@ -18,7 +18,7 @@ class BookService:
     
     async def fetch_books_by_ids(self, book_ids: List[str]) -> List[dict]:
         """Fetch book details by IDs using external function"""
-        return await fetch_books_by_ids(book_ids)
+        return await fetch_from_neon(book_ids)
 
     async def _enrich_with_summaries(self, books_data: List[dict]) -> List[dict]:
         """Add summaries to books from book_summary table"""

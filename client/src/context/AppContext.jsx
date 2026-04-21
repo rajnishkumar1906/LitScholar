@@ -428,6 +428,9 @@ export const AppProvider = ({ children }) => {
     updateProfile,
     fetchUserBooks,
     fetchUserActivity,
+
+
+    isAuthenticated
   };
 
   return (

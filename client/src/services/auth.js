@@ -14,6 +14,12 @@ function applyAuthResponseBody(data) {
   }
 }
 
+/**
+ * Standalone helper to check authentication.
+ * Checks for the presence of the in-memory access token.
+ */
+export const isAuthenticated = () => !!getMemoryAccessToken();
+
 export const authService = {
   // Login user
   async login(email, password) {
@@ -83,9 +89,7 @@ export const authService = {
   },
 
   // Check if user is authenticated (legacy; prefer AppContext user after checkAuth)
-  isAuthenticated() {
-    return !!getMemoryAccessToken();
-  },
+  isAuthenticated,
 
   // Get current user
   async getCurrentUser() {

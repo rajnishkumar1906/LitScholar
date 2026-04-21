@@ -1,23 +1,17 @@
 import axios from 'axios';
 import config from './config';
 
-/**
- * In-memory access JWT for cross-origin microservices (e.g. RAG on :8001).
- * httpOnly cookies from identity-service (:8000) are not sent to other origins.
- * Set only from login/register/refresh response bodies — never localStorage.
- */
 let memoryAccessToken = null;
 export const setMemoryAccessToken = (token) => {
   memoryAccessToken = token || null;
 };
 export const getMemoryAccessToken = () => memoryAccessToken;
 
-// Standardized Instance Creator
 const createInstance = (baseURL, serviceName = '', options = {}) => {
   const { useMemoryBearer = false } = options;
   const instance = axios.create({
     baseURL,
-    withCredentials: true, // Send cookies (identity-service uses httpOnly JWT cookies)
+    withCredentials: true,
     headers: {
       'Content-Type': 'application/json',
     },
@@ -26,8 +20,6 @@ const createInstance = (baseURL, serviceName = '', options = {}) => {
 
   instance.interceptors.request.use(
     (reqConfig) => {
-      // Identity API: rely on httpOnly cookies only (no duplicate Bearer from JS)
-      // RAG/other services: send Bearer from memory when cross-origin cookies are absent
       if (useMemoryBearer && memoryAccessToken) {
         reqConfig.headers.Authorization = `Bearer ${memoryAccessToken}`;
       }
@@ -40,16 +32,13 @@ const createInstance = (baseURL, serviceName = '', options = {}) => {
     (error) => Promise.reject(error)
   );
 
-  // Response interceptor for token refresh
   instance.interceptors.response.use(
     (response) => response,
     async (error) => {
       const originalRequest = error.config;
 
-      // Prevent infinite loops on auth endpoints
       const isAuthEndpoint = originalRequest.url?.includes('/auth/');
 
-      // Handle 401 Unauthorized (Token Expiry)
       if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
         originalRequest._retry = true;
         
@@ -71,7 +60,6 @@ const createInstance = (baseURL, serviceName = '', options = {}) => {
           console.error('Token refresh failed:', refreshError);
           setMemoryAccessToken(null);
 
-          // Redirect to login
           if (!['/'].includes(window.location.pathname)) {
             window.location.href = '/';
           }
@@ -79,14 +67,12 @@ const createInstance = (baseURL, serviceName = '', options = {}) => {
         }
       }
 
-      // Standardized Error Mapping
       const errorPayload = {
         success: false,
         status: error.response?.status,
         error: error.response?.data?.detail || error.message || 'Unknown Error'
       };
 
-      // Handle specific status codes
       if (error.response) {
         switch (error.response.status) {
           case 400: errorPayload.error = error.response.data?.detail || 'Validation Error'; break;
