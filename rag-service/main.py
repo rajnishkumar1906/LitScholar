@@ -25,7 +25,7 @@ async def lifespan(app: FastAPI):
     print("🚀 LitScholar RAG Service starting...")
     print(f"📊 Environment: {settings.ENVIRONMENT}")
     print(f"🌐 CORS Origins: {settings.cors_origins_list}")
-    print(f"🔌 Auth Service URL: {settings.AUTH_SERVICE_URL}")
+    print(f"🔌 Auth Service URL: {settings.IDENTITY_SERVICE_URL}")
     print("=" * 50)
     
     try:

@@ -1,134 +1,131 @@
 """
-faiss_client.py - FAISS-based book retrieval
+faiss_client.py - Clean FAISS loader for RAG
 """
 
 import os
 import json
 import faiss
-import numpy as np
-from pathlib import Path
+import torch
 from sentence_transformers import SentenceTransformer
 
-# Determine base directory
+# ================= PATH SETUP =================
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-# FAISS store directory (reusing existing structure)
 FAISS_DIR = os.path.join(BASE_DIR, "faiss_store")
 
-# For production (Render) - use persistent path
-PROD_FAISS_DIR = os.environ.get('FAISS_PERSIST_DIR', '/tmp/faiss_store')
+# Production override
+FAISS_DIR = os.environ.get("FAISS_PERSIST_DIR", FAISS_DIR)
 
-# Decide which directory to use based on environment
-IS_PRODUCTION = os.environ.get('ENVIRONMENT') == 'production'
-FAISS_STORE_DIR = PROD_FAISS_DIR if IS_PRODUCTION else FAISS_DIR
+FAISS_INDEX_PATH = os.path.join(FAISS_DIR, "books.index")
+FAISS_IDS_PATH = os.path.join(FAISS_DIR, "books_ids.json")
 
-# FAISS file paths
-FAISS_INDEX_PATH = os.path.join(FAISS_STORE_DIR, "books.index")
-FAISS_IDS_PATH = os.path.join(FAISS_STORE_DIR, "books_ids.json")
-FAISS_META_PATH = os.path.join(FAISS_STORE_DIR, "books_meta.json")
+print(f"📂 FAISS DIR: {FAISS_DIR}")
 
-print(f"📂 Using FAISS directory: {FAISS_STORE_DIR}")
-print(f"🌍 Environment: {'Production' if IS_PRODUCTION else 'Development'}")
 
-# Global variables
+# ================= GLOBALS =================
 _index = None
 _ordered_ids = None
-_meta_store = None
 _model = None
 
-def ensure_faiss_dir():
-    """Ensure FAISS directory exists"""
-    os.makedirs(FAISS_STORE_DIR, exist_ok=True)
 
-def load_faiss_index():
-    """Load FAISS index and metadata"""
-    global _index, _ordered_ids, _meta_store
-    
-    ensure_faiss_dir()
-    
+# ================= LOAD FAISS =================
+def load_faiss():
+    global _index, _ordered_ids
+
+    if _index is not None:
+        return _index, _ordered_ids
+
     if not os.path.exists(FAISS_INDEX_PATH):
-        print(f"❌ FAISS index not found at {FAISS_INDEX_PATH}")
-        print("💡 Please run the embedding pipeline first")
-        return False
-    
-    try:
-        # Load FAISS index
-        print("⚡ Loading FAISS index...")
-        _index = faiss.read_index(FAISS_INDEX_PATH)
-        
-        # Load ordered IDs
-        with open(FAISS_IDS_PATH, 'r', encoding='utf-8') as f:
-            _ordered_ids = json.load(f)
-        
-        # Load metadata
-        with open(FAISS_META_PATH, 'r', encoding='utf-8') as f:
-            _meta_store = json.load(f)
-        
-        print(f"✅ FAISS index loaded: {_index.ntotal} vectors")
-        print(f"📚 Metadata loaded: {len(_meta_store)} books")
-        return True
-        
-    except Exception as e:
-        print(f"❌ Error loading FAISS index: {e}")
-        return False
+        raise FileNotFoundError(f"❌ FAISS index not found at {FAISS_INDEX_PATH}")
 
+    print("⚡ Loading FAISS index...")
+
+    _index = faiss.read_index(FAISS_INDEX_PATH)
+
+    with open(FAISS_IDS_PATH, "r", encoding="utf-8") as f:
+        _ordered_ids = json.load(f)
+
+    print(f"✅ FAISS loaded: {_index.ntotal} vectors")
+
+    return _index, _ordered_ids
+
+
+# ================= LOAD MODEL =================
 def get_model():
-    """Get or load the sentence transformer model"""
     global _model
-    
-    if _model is None:
-        print("🔄 Loading embedding model: all-mpnet-base-v2")
-        
-        # For production, set device explicitly
-        device = os.environ.get('MODEL_DEVICE', 'cpu')
-        
-        # Load model
-        _model = SentenceTransformer(
-            "all-mpnet-base-v2",
-            device=device,
-            cache_folder=os.environ.get('MODEL_CACHE_DIR', "/tmp/model_cache")
-        )
-        
-        # Optional: Use half precision for faster inference
-        if os.environ.get('USE_FP16', 'false').lower() == 'true':
-            try:
-                _model.half()
-                print("✅ Using FP16 precision for faster inference")
-            except:
-                print("⚠️ FP16 not supported, using FP32")
-        
-        print("✅ Embedding model loaded successfully")
-    
+
+    if _model is not None:
+        return _model
+
+    print("🔄 Loading embedding model: all-mpnet-base-v2")
+
+    # ✅ auto GPU detection
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+
+    _model = SentenceTransformer(
+        "all-mpnet-base-v2",
+        device=device
+    )
+
+    # ✅ fix sequence length
+    _model.max_seq_length = 256
+
+    print(f"✅ Model loaded on {device}")
+
     return _model
 
-def get_faiss_collection():
-    """Get FAISS collection (compatible with Chroma interface)"""
-    if _index is None:
-        if not load_faiss_index():
-            raise Exception("FAISS index not available")
-    
-    return {
-        "index": _index,
-        "ordered_ids": _ordered_ids,
-        "meta_store": _meta_store
-    }
 
+# ================= SEARCH =================
+def search(query: str, top_k: int = 10):
+    """
+    Pure FAISS search → returns book_ids + scores
+    """
+
+    if not query.strip():
+        return []
+
+    index, ordered_ids = load_faiss()
+    model = get_model()
+
+    # encode query
+    vec = model.encode(
+        [query],
+        normalize_embeddings=True
+    )
+
+    vec = vec.astype("float32")
+    faiss.normalize_L2(vec)
+
+    distances, indices = index.search(vec, top_k)
+
+    results = []
+
+    for score, idx in zip(distances[0], indices[0]):
+        if idx == -1:
+            continue
+
+        book_id = str(ordered_ids[idx]).strip()
+
+        results.append({
+            "book_id": book_id,
+            "score": float(score)
+        })
+
+    return results
+
+
+# ================= STATS =================
 def get_collection_stats():
-    """Get statistics about the FAISS collection"""
     try:
-        if _index is None:
-            load_faiss_index()
-        
+        index, _ = load_faiss()
         return {
-            "total_embeddings": _index.ntotal if _index else 0,
-            "collection_name": "faiss_books",
-            "has_data": _index.ntotal > 0 if _index else False,
-            "backend": "FAISS"
+            "total_embeddings": index.ntotal,
+            "backend": "FAISS",
+            "has_data": index.ntotal > 0
         }
     except Exception as e:
         return {
             "error": str(e),
             "total_embeddings": 0,
-            "has_data": False,
-            "backend": "FAISS"
+            "has_data": False
         }
