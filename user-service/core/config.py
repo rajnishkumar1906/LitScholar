@@ -1,54 +1,47 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pathlib import Path
+from typing import List, Union
 import os
-from typing import List, Optional, Union
+
 
 class Settings(BaseSettings):
-    # Database
+
+    # ================= DATABASE =================
     DB_URL_NEON: str
 
-    # JWT Settings
-    JWT_SECRET: str = "dev-secret-change-this-in-production"
+    # ================= JWT =================
+    JWT_SECRET: str
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
-    # OAuth / Session
-    SESSION_SECRET_KEY: str = "dev-session-secret-change-this-in-production"
+    # ================= GOOGLE AUTH =================
     GOOGLE_CLIENT_ID: str = ""
     GOOGLE_CLIENT_SECRET: str = ""
     GOOGLE_REDIRECT_URI: str = ""
 
-    # CORS - make sure localhost:5173 is included
+    # ================= FRONTEND =================
+    FRONTEND_URL: str = "http://localhost:5173"
+
+    # ================= CORS =================
     CORS_ORIGINS: Union[str, List[str]] = [
         "http://localhost:5173",
         "http://127.0.0.1:5173",
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
         "https://lit-scholar.vercel.app"
     ]
 
-    # Frontend
-    FRONTEND_URL: str = "http://localhost:5173"
-
-    # API Keys
-    GEMINI_API_KEY: str = ""
-
-    # SMTP Settings
-    SMTP_SERVER: str = "smtp.mailtrap.io"
-    SMTP_PORT: int = 2525
+    # ================= EMAIL =================
+    SMTP_SERVER: str = "smtp.gmail.com"
+    SMTP_PORT: int = 587
     SMTP_USERNAME: str = ""
     SMTP_PASSWORD: str = ""
     SENDER_EMAIL: str = ""
 
-    # Microservice URLs
-    PAYMENT_SERVICE_URL: str = "http://localhost:8003"
-    IDENTITY_SERVICE_URL: str = "http://localhost:8000"
+    # ================= INTER-SERVICE =================
+    # URL for lit-ai-engine (the only other backend service)
+    LIT_AI_ENGINE_URL: str = "http://localhost:8001"
 
-    # Environment
+    # ================= ENV =================
     ENVIRONMENT: str = "development"
-    
-    # Render specific
     RENDER: bool = False
 
     model_config = SettingsConfigDict(
@@ -58,51 +51,82 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
+    # ================= HELPERS =================
     @property
     def cors_origins_list(self) -> List[str]:
-        """Convert CORS_ORIGINS to list format"""
         if isinstance(self.CORS_ORIGINS, str):
-            origins = [origin.strip() for origin in self.CORS_ORIGINS.split(",")]
-            return [o for o in origins if o]
-        return self.CORS_ORIGINS
+            origins = [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
+        else:
+            origins = [str(o).strip() for o in self.CORS_ORIGINS if str(o).strip()]
+
+        # Ensure current frontend URL is always allowed.
+        frontend = self.normalized_frontend_url
+        if frontend and frontend not in origins:
+            origins.append(frontend)
+
+        # Helpful defaults for local dev.
+        dev_defaults = ["http://localhost:5173", "http://127.0.0.1:5173"]
+        for origin in dev_defaults:
+            if origin not in origins:
+                origins.append(origin)
+
+        return origins
 
     @property
     def is_production(self) -> bool:
-        """Check if running in production"""
         return self.ENVIRONMENT.lower() == "production" or self.RENDER
 
-# Create settings instance
+    @property
+    def normalized_frontend_url(self) -> str:
+        return self.FRONTEND_URL.rstrip("/") if self.FRONTEND_URL else ""
+
+    @property
+    def normalized_lit_ai_engine_url(self) -> str:
+        return self.LIT_AI_ENGINE_URL.rstrip("/") if self.LIT_AI_ENGINE_URL else ""
+
+
+# ================= INSTANCE =================
 settings = Settings()
 
-# Auto-detect Render environment
-if os.environ.get('RENDER'):
+
+# ================= RENDER AUTO CONFIG =================
+if os.environ.get("RENDER"):
     settings.RENDER = True
     settings.ENVIRONMENT = "production"
-    
-    # In production, ensure secrets are set from environment variables
-    if settings.JWT_SECRET == "dev-secret-change-this-in-production":
-        settings.JWT_SECRET = os.environ.get('JWT_SECRET', settings.JWT_SECRET)
-    
-    if settings.SESSION_SECRET_KEY == "dev-session-secret-change-this-in-production":
-        settings.SESSION_SECRET_KEY = os.environ.get('SESSION_SECRET_KEY', settings.SESSION_SECRET_KEY)
-    
-    # Ensure FRONTEND_URL has no trailing slash in production
-    if settings.FRONTEND_URL.endswith('/'):
-        settings.FRONTEND_URL = settings.FRONTEND_URL.rstrip('/')
-    
-    # Update IDENTITY_SERVICE_URL for production if needed
-    if os.environ.get('IDENTITY_SERVICE_URL'):
-        settings.IDENTITY_SERVICE_URL = os.environ.get('IDENTITY_SERVICE_URL')
 
-# Debug output (only in development)
+    if os.environ.get("LIT_AI_ENGINE_URL"):
+        settings.LIT_AI_ENGINE_URL = os.environ["LIT_AI_ENGINE_URL"]
+    elif os.environ.get("AI_SERVICE_URL"):
+        # Backward compatibility with older env var name
+        settings.LIT_AI_ENGINE_URL = os.environ["AI_SERVICE_URL"]
+
+# Generic deployment compatibility (non-Render too)
+if os.environ.get("ENVIRONMENT", "").lower() == "production":
+    settings.ENVIRONMENT = "production"
+
+if os.environ.get("FRONTEND_URL"):
+    settings.FRONTEND_URL = os.environ["FRONTEND_URL"]
+
+if os.environ.get("LIT_AI_ENGINE_URL"):
+    settings.LIT_AI_ENGINE_URL = os.environ["LIT_AI_ENGINE_URL"]
+elif os.environ.get("AI_SERVICE_URL"):
+    settings.LIT_AI_ENGINE_URL = os.environ["AI_SERVICE_URL"]
+
+# Normalize URL values once after env overrides.
+settings.FRONTEND_URL = settings.normalized_frontend_url
+settings.LIT_AI_ENGINE_URL = settings.normalized_lit_ai_engine_url
+
+# Guard rail for production deployments.
+if settings.is_production and not settings.JWT_SECRET:
+    raise RuntimeError("JWT_SECRET must be set in production")
+
+
+# ================= DEBUG =================
 if not settings.is_production:
-    print("\n" + "="*50)
-    print("🔍 ENVIRONMENT VARIABLES CHECK:")
-    print(f"Environment: {settings.ENVIRONMENT}")
-    print(f"Render detected: {settings.RENDER}")
-    print(f"CORS Origins: {settings.cors_origins_list}")
-    print(f"Frontend URL: {settings.FRONTEND_URL}")
-    print(f"Google Redirect URI: {settings.GOOGLE_REDIRECT_URI}")
-    print(f"IDENTITY_SERVICE_URL: {settings.IDENTITY_SERVICE_URL}")
-    print(f".env file exists: {Path('.env').exists()}")
-    print("="*50 + "\n")
+    print("\n" + "=" * 50)
+    print("🔍 CONFIG CHECK")
+    print(f"ENV: {settings.ENVIRONMENT}")
+    print(f"CORS: {settings.cors_origins_list}")
+    print(f"FRONTEND: {settings.normalized_frontend_url}")
+    print(f"LIT_AI_ENGINE_URL: {settings.normalized_lit_ai_engine_url}")
+    print("=" * 50 + "\n")

@@ -30,15 +30,15 @@ def get_token_from_header_or_cookie(
         headers={"WWW-Authenticate": "Bearer"},
     )
 
-async def verify_token_with_identity_service(token: str) -> dict:
+async def verify_token_with_user_service(token: str) -> dict:
     """
-    Call identity-service to validate token and get user info.
+    Call user-service to validate token and get user info.
     This allows microservices to remain stateless regarding JWT secrets.
     """
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
             response = await client.post(
-                f"{settings.IDENTITY_SERVICE_URL}/auth/verify",
+                f"{settings.USER_SERVICE_URL}/auth/verify",
                 json={"token": token}
             )
             
@@ -54,7 +54,7 @@ async def verify_token_with_identity_service(token: str) -> dict:
     except httpx.TimeoutException:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Identity service unavailable"
+            detail="User service unavailable"
         )
     except HTTPException:
         raise
@@ -70,10 +70,10 @@ async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security)
 ) -> dict:
     """
-    Dependency to get the current user by verifying the token with identity-service.
+    Dependency to get the current user by verifying the token with user-service.
     """
     token = get_token_from_header_or_cookie(request, credentials)
-    user_data = await verify_token_with_identity_service(token)
+    user_data = await verify_token_with_user_service(token)
     return user_data
 
 async def get_current_user_with_db(
@@ -94,5 +94,5 @@ async def get_current_user_with_db(
         if user:
             return dict(user)
     
-    # Fallback to data from identity-service if not in local DB yet
+    # Fallback to data from user-service if not in local DB yet
     return user_data

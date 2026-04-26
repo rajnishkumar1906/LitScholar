@@ -438,46 +438,6 @@ async def reset_password(
     return {"message": "Password reset successfully. You can now log in with your new password."}
 
 
-@router.post("/verify", response_model=VerifyTokenResponse)
-async def verify_token(
-    request: VerifyTokenRequest,
-    db: asyncpg.Connection = Depends(get_async_db)
-):
-    """
-    Internal endpoint for other services to verify JWT tokens
-    """
-    try:
-        # Decode token
-        payload = jwt.decode(
-            request.token,
-            settings.JWT_SECRET,
-            algorithms=[settings.JWT_ALGORITHM],
-        )
-        
-        email = payload.get("sub")
-        if not email:
-            raise HTTPException(status_code=401, detail="Invalid token")
-        
-        # Get user from database
-        user = await db.fetchrow(
-            "SELECT id, email, full_name FROM users WHERE email = $1",
-            email
-        )
-        
-        if not user:
-            raise HTTPException(status_code=401, detail="User not found")
-        
-        return VerifyTokenResponse(
-            id=user["id"],
-            email=user["email"],
-            full_name=user.get("full_name"),
-            is_active=True
-        )
-        
-    except JWTError as e:
-        raise HTTPException(status_code=401, detail=f"Invalid or expired token: {str(e)}")
-
-
 @router.get("/google/login")
 async def google_login(request: Request):
     if not settings.GOOGLE_REDIRECT_URI:

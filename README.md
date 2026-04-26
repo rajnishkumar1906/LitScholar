@@ -21,14 +21,15 @@ LitScholar is a modern, full-stack microservices application that transforms boo
 
 - The **user-service** sets **httpOnly** cookies (`access_token`, `refresh_token`) on login, register, token refresh, and Google OAuth (redirect returns with `Set-Cookie`, no tokens in the URL).
 - The **user-service** also handles all **email notifications** (SMTP) for user lifecycle events (welcome, login alerts, password resets).
-- The **Frontend app** calls the user-service API with **`credentials: included`** / Axios **`withCredentials: true`** so the browser sends cookies automatically.
-- Other services (e.g. **RAG** on a different port) do not receive auth cookies cross-origin. The client stores the access JWT **in memory only** (from JSON responses) for **`Authorization: Bearer`** to those APIs—**not** in `localStorage`. Logout clears memory and hits **`POST /auth/logout`** to invalidate the refresh token server-side.
+- The **Frontend app** calls the user-service API with `**credentials: included`** / Axios `**withCredentials: true**` so the browser sends cookies automatically.
+- Other services (e.g. **RAG** on a different port) do not receive auth cookies cross-origin. The client stores the access JWT **in memory only** (from JSON responses) for `**Authorization: Bearer`** to those APIs—**not** in `localStorage`. Logout clears memory and hits `**POST /auth/logout`** to invalidate the refresh token server-side.
 
 ---
 
 ## 🛠️ Tech Stack
 
 ### **Frontend**
+
 - React 18 + Vite
 - Tailwind CSS with Glassmorphism
 - React Router v6
@@ -36,6 +37,7 @@ LitScholar is a modern, full-stack microservices application that transforms boo
 - React Toastify
 
 ### **Backend**
+
 - FastAPI (Python 3.13+)
 - Neon PostgreSQL (Serverless)
 - FAISS (Vector Index)
@@ -108,23 +110,27 @@ LitScholar is a modern, full-stack microservices application that transforms boo
 
 ## 📊 Service Communication Matrix
 
-| Service | Talks To | Purpose |
-|---------|----------|---------|
-| **Frontend** | All Services | User interface & API calls |
-| **user-service** | NeonDB, Google OAuth, SMTP | Auth, user data, & emails |
-| **lit-ai-engine** | NeonDB, FAISS, Gemini | Book search & AI responses |
+
+| Service           | Talks To                   | Purpose                    |
+| ----------------- | -------------------------- | -------------------------- |
+| **Frontend**      | All Services               | User interface & API calls |
+| **user-service**  | NeonDB, Google OAuth, SMTP | Auth, user data, & emails  |
+| **lit-ai-engine** | NeonDB, FAISS, Gemini      | Book search & AI responses |
+
 
 ---
 
 ## ⚙️ Quick Start
 
 ### Prerequisites
+
 - Python 3.11+
 - Node.js 18+
 - Neon DB Account
 - Gemini API Key
 
 ### One-Line Setup
+
 ```bash
 git clone https://github.com/rajnishk71249/litscholar.git
 cd litscholar
@@ -167,3 +173,4 @@ LitScholar/
 ├── lit-ai-engine/    # AI, FAISS, books API
 └── FAISS_data_preprocessing/ # Index/data prep pipeline (optional)
 ```
+

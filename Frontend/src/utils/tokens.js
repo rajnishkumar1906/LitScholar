@@ -1,47 +1,34 @@
-// Token management using cookies (was using localStorage)
+// utils/tokens.js
+
 import { tokenCookies } from './cookies';
 
+let accessToken = null;
+
 export const tokenManager = {
-  // Get access token
-  getAccessToken: () => {
-    return tokenCookies.getAccessToken();
-  },
-  
-  // Get refresh token
-  getRefreshToken: () => {
-    return tokenCookies.getRefreshToken();
-  },
-  
-  // Set both tokens
-  setTokens: (accessToken, refreshToken) => {
-    if (accessToken) {
-      tokenCookies.setAccessToken(accessToken);
-    }
-    if (refreshToken) {
-      tokenCookies.setRefreshToken(refreshToken);
-    }
-  },
-  
-  // Set access token only
+
+  // ===== Access Token (memory only) =====
+  getAccessToken: () => accessToken,
+
   setAccessToken: (token) => {
-    tokenCookies.setAccessToken(token);
+    accessToken = token || null;
   },
-  
-  // Set refresh token only
+
+  // ===== Refresh Token (cookie) =====
+  getRefreshToken: () => tokenCookies.getRefreshToken(),
+
   setRefreshToken: (token) => {
     tokenCookies.setRefreshToken(token);
   },
-  
-  // Clear all tokens
+
+  // ===== Clear =====
   clear: () => {
+    accessToken = null;
     tokenCookies.clear();
-    // Also clear localStorage just in case of old data
+
     localStorage.removeItem('litscholar_access_token');
     localStorage.removeItem('litscholar_refresh_token');
   },
-  
-  // Check if authenticated
-  isAuthenticated: () => {
-    return !!tokenCookies.getAccessToken();
-  }
+
+  // ===== Check =====
+  isAuthenticated: () => !!accessToken,
 };

@@ -1,161 +1,143 @@
-// src/services/auth.js - Authentication service (httpOnly cookie session + in-memory JWT for RAG)
+// src/services/auth.js
+
 import {
-  authApi,
+  userApi,
   handleResponse,
   setMemoryAccessToken,
   getMemoryAccessToken,
 } from './api';
+
 import { tokenManager } from '../utils/tokens';
 import config from './config';
 
-function applyAuthResponseBody(data) {
+
+// ===== Helpers =====
+const applyToken = (data) => {
   if (data?.access_token) {
     setMemoryAccessToken(data.access_token);
+    tokenManager.setAccessToken(data.access_token);
   }
-}
+};
 
-/**
- * Standalone helper to check authentication.
- * Checks for the presence of the in-memory access token.
- */
 export const isAuthenticated = () => !!getMemoryAccessToken();
 
+
+// ===== Auth Service =====
 export const authService = {
-  // Login user
+
+  // ===== Login =====
   async login(email, password) {
-    const result = await handleResponse(
-      authApi.post('/auth/login', { email, password })
+    const res = await handleResponse(
+      userApi.post('/auth/login', { email, password })
     );
-    
-    if (result.success) {
-      applyAuthResponseBody(result.data);
-      return { success: true, data: result.data };
-    }
-    
-    return { success: false, error: result.error };
+
+    if (res.success) applyToken(res.data);
+    return res;
   },
 
-  // Register user
+  // ===== Register =====
   async register(email, password) {
-    const result = await handleResponse(
-      authApi.post('/auth/register', { email, password })
+    const res = await handleResponse(
+      userApi.post('/auth/register', { email, password })
     );
-    
-    if (result.success) {
-      applyAuthResponseBody(result.data);
-      return { success: true, data: result.data };
-    }
-    
-    return { success: false, error: result.error };
+
+    if (res.success) applyToken(res.data);
+    return res;
   },
 
-  // Google OAuth login
+  // ===== Google Login =====
   googleLogin() {
-    window.location.href = `${config.AUTH_API_URL}/auth/google/login`;
+    window.location.href = `${config.USER_API_URL}/auth/google/login`;
   },
 
-  // Google OAuth, identity-service redirects with Set-Cookie (no tokens in URL)
+  // ===== OAuth Callback =====
   handleGoogleCallback() {
     const params = new URLSearchParams(window.location.search);
     const error = params.get('error');
-    if (error) {
-      return { success: false, error };
-    }
+
+    if (error) return { success: false, error };
+
     if (params.get('oauth') === 'success') {
       window.history.replaceState({}, document.title, window.location.pathname);
       return { success: true };
     }
-    return { success: false, error: 'OAuth callback not completed' };
+
+    return { success: false, error: 'OAuth not completed' };
   },
 
-  // Logout user
+  // ===== Logout =====
   async logout() {
     try {
-      await handleResponse(
-        authApi.post('/auth/logout')
-      );
+      await handleResponse(userApi.post('/auth/logout'));
     } catch (e) {
-      console.error('Logout API call failed:', e);
+      console.error('Logout failed:', e);
     }
-    
+
     setMemoryAccessToken(null);
     tokenManager.clear();
-    
-    // Clear any other client-side storage
+
     localStorage.clear();
     sessionStorage.clear();
-    
+
     return { success: true };
   },
 
-  // Check if user is authenticated (legacy; prefer AppContext user after checkAuth)
-  isAuthenticated,
-
-  // Get current user
+  // ===== Current User =====
   async getCurrentUser() {
-    const result = await handleResponse(
-      authApi.get('/users/me')
+    return await handleResponse(
+      userApi.get('/users/me')
     );
-    
-    return result;
   },
 
-  // Refresh token (uses httpOnly refresh_token cookie)
+  // ===== Refresh Token =====
   async refreshToken() {
-    const result = await handleResponse(
-      authApi.post('/auth/refresh')
+    const res = await handleResponse(
+      userApi.post('/auth/refresh')
     );
-    
-    if (result.success && result.data.access_token) {
-      applyAuthResponseBody(result.data);
-      return { success: true };
+
+    if (res.success && res.data?.access_token) {
+      applyToken(res.data);
     }
-    
-    return result;
+
+    return res;
   },
 
-  /** After full page load, cookie session is valid but memory JWT is empty — refresh once for RAG Bearer. */
-  async ensureRagAccessToken() {
+  // ===== Ensure JWT for AI calls =====
+  async ensureAiAccessToken() {
     if (getMemoryAccessToken()) return { success: true };
     return this.refreshToken();
   },
 
-  // Forgot password
+  // Backward-compatible alias used by older callers.
+  async ensureRagAccessToken() {
+    return this.ensureAiAccessToken();
+  },
+
+  // ===== Forgot Password =====
   async forgotPassword(email) {
-    const result = await handleResponse(
-      authApi.post('/auth/forgot-password', { email })
+    return await handleResponse(
+      userApi.post('/auth/forgot-password', { email })
     );
-    
-    if (result.success) {
-      return { success: true, message: result.data.message };
-    }
-    
-    return { success: false, error: result.error };
   },
 
-  // Verify OTP
+  // ===== Verify OTP =====
   async verifyOtp(email, otp) {
-    const result = await handleResponse(
-      authApi.post('/auth/verify-otp', { email, otp })
+    return await handleResponse(
+      userApi.post('/auth/verify-otp', { email, otp })
     );
-    
-    if (result.success) {
-      return { success: true, message: result.data.message };
-    }
-    
-    return { success: false, error: result.error };
   },
 
-  // Reset password with OTP
+  // ===== Reset Password =====
   async resetPassword(email, otp, newPassword) {
-    const result = await handleResponse(
-      authApi.post('/auth/reset-password', { email, otp, new_password: newPassword })
+    return await handleResponse(
+      userApi.post('/auth/reset-password', {
+        email,
+        otp,
+        new_password: newPassword
+      })
     );
-    
-    if (result.success) {
-      return { success: true, message: result.data.message };
-    }
-    
-    return { success: false, error: result.error };
-  }
+  },
+
+  // ===== Auth Check =====
+  isAuthenticated,
 };

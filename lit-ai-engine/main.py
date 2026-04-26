@@ -22,17 +22,17 @@ async def lifespan(app: FastAPI):
     Lifespan context manager for startup and shutdown events
     """
     print("=" * 50)
-    print("🚀 LitScholar RAG Service starting...")
+    print("🚀 LitScholar lit-ai-engine starting...")
     print(f"📊 Environment: {settings.ENVIRONMENT}")
     print(f"🌐 CORS Origins: {settings.cors_origins_list}")
-    print(f"🔌 Auth Service URL: {settings.IDENTITY_SERVICE_URL}")
+    print(f"🔌 User Service URL: {settings.USER_SERVICE_URL}")
     print("=" * 50)
     
     try:
         yield
     finally:
         print("=" * 50)
-        print("🛑 LitScholar RAG Service shutting down...")
+        print("🛑 LitScholar lit-ai-engine shutting down...")
         try:
             await close_pool()
             print("✅ Database connection pool closed")
@@ -97,7 +97,7 @@ async def root():
     """Root endpoint - API information"""
     return {
         "status": "online",
-        "service": "rag-service",
+        "service": "lit-ai-engine",
         "message": "Welcome to LitScholar RAG API",
         "environment": settings.ENVIRONMENT,
     }

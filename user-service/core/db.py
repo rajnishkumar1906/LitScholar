@@ -3,11 +3,9 @@ import asyncio
 from core.config import settings
 
 async def get_async_db():
-    """
-    Asynchronous PostgreSQL connection using asyncpg.
-    """
+    """Async DB connection dependency."""
     try:
-        # Use a timeout to avoid hanging
+        # Connect with timeout
         conn = await asyncio.wait_for(
             asyncpg.connect(settings.DB_URL_NEON),
             timeout=10.0
@@ -15,11 +13,13 @@ async def get_async_db():
         try:
             yield conn
         finally:
+            # Always close connection
             await conn.close()
+
     except asyncio.TimeoutError:
-        print("DATABASE CONNECTION TIMEOUT: Could not reach Neon DB in 10s")
-        raise Exception("Database connection timeout. Check your network or DB URL.")
+        print("DB TIMEOUT: Could not connect in 10s")
+        raise Exception("Database connection timeout")
+
     except Exception as e:
-        print(f"DATABASE CONNECTION FAILED: {str(e)}")
-        # Re-raise so FastAPI captures it
+        print(f"DB ERROR: {str(e)}")
         raise

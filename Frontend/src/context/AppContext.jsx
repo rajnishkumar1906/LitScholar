@@ -57,7 +57,7 @@ export const AppProvider = ({ children }) => {
     try {
       const userResult = await authService.getCurrentUser();
       if (userResult.success) {
-        await authService.ensureRagAccessToken();
+        await authService.ensureAiAccessToken();
         setUser(userResult.data);
       } else {
         setUser(null);

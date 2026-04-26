@@ -1,24 +1,17 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pathlib import Path
 import os
-from typing import List, Optional, Union
+from typing import List, Union
 
 class Settings(BaseSettings):
     # Database
     DB_URL_NEON: str = ""
 
-    # JWT Settings (keep for potential internal use, but rag-service won't decode)
+    # JWT Settings (kept for compatibility)
     JWT_SECRET: str = "dev-secret-change-this-in-production"
     JWT_ALGORITHM: str = "HS256"
     
-    # Identity Service URL
-    IDENTITY_SERVICE_URL: str = "http://localhost:8000"  # Identity service endpoint
-
-    # OAuth / Session (remove SessionMiddleware)
-    SESSION_SECRET_KEY: str = "dev-session-secret-change-this-in-production"
-    GOOGLE_CLIENT_ID: str = ""
-    GOOGLE_CLIENT_SECRET: str = ""
-    GOOGLE_REDIRECT_URI: str = ""
+    # user-service URL (auth verification source)
+    USER_SERVICE_URL: str = "http://localhost:8000"
 
     # CORS
     CORS_ORIGINS: Union[str, List[str]] = [
@@ -33,9 +26,6 @@ class Settings(BaseSettings):
 
     # API Keys
     GEMINI_API_KEY: str = ""
-
-    # Microservice URLs
-    PAYMENT_SERVICE_URL: str = "http://localhost:8003"
 
     # Environment
     ENVIRONMENT: str = "development"
@@ -52,12 +42,35 @@ class Settings(BaseSettings):
     def cors_origins_list(self) -> List[str]:
         if isinstance(self.CORS_ORIGINS, str):
             origins = [origin.strip() for origin in self.CORS_ORIGINS.split(",")]
-            return [o for o in origins if o]
-        return self.CORS_ORIGINS
+        else:
+            origins = [str(origin).strip() for origin in self.CORS_ORIGINS]
+
+        origins = [o for o in origins if o]
+
+        # Ensure frontend URL is always allowed.
+        frontend = self.normalized_frontend_url
+        if frontend and frontend not in origins:
+            origins.append(frontend)
+
+        # Helpful defaults for local dev.
+        dev_defaults = ["http://localhost:5173", "http://127.0.0.1:5173"]
+        for origin in dev_defaults:
+            if origin not in origins:
+                origins.append(origin)
+
+        return origins
 
     @property
     def is_production(self) -> bool:
         return self.ENVIRONMENT.lower() == "production" or self.RENDER
+
+    @property
+    def normalized_frontend_url(self) -> str:
+        return self.FRONTEND_URL.rstrip("/") if self.FRONTEND_URL else ""
+
+    @property
+    def normalized_user_service_url(self) -> str:
+        return self.USER_SERVICE_URL.rstrip("/") if self.USER_SERVICE_URL else ""
 
 settings = Settings()
 
@@ -69,20 +82,36 @@ if os.environ.get('RENDER'):
     if settings.JWT_SECRET == "dev-secret-change-this-in-production":
         settings.JWT_SECRET = os.environ.get('JWT_SECRET', settings.JWT_SECRET)
     
-    if settings.SESSION_SECRET_KEY == "dev-session-secret-change-this-in-production":
-        settings.SESSION_SECRET_KEY = os.environ.get('SESSION_SECRET_KEY', settings.SESSION_SECRET_KEY)
-    
-    if settings.FRONTEND_URL.endswith('/'):
-        settings.FRONTEND_URL = settings.FRONTEND_URL.rstrip('/')
-    
-    # Override identity service URL in production if needed
-    if os.environ.get('IDENTITY_SERVICE_URL'):
-        settings.IDENTITY_SERVICE_URL = os.environ.get('IDENTITY_SERVICE_URL')
+    # Prefer current env var, fallback to old name for compatibility
+    if os.environ.get('USER_SERVICE_URL'):
+        settings.USER_SERVICE_URL = os.environ.get('USER_SERVICE_URL')
+    elif os.environ.get('IDENTITY_SERVICE_URL'):
+        settings.USER_SERVICE_URL = os.environ.get('IDENTITY_SERVICE_URL')
+
+# Generic deployment compatibility (non-Render too)
+if os.environ.get("ENVIRONMENT", "").lower() == "production":
+    settings.ENVIRONMENT = "production"
+
+if os.environ.get("FRONTEND_URL"):
+    settings.FRONTEND_URL = os.environ.get("FRONTEND_URL")
+
+if os.environ.get("USER_SERVICE_URL"):
+    settings.USER_SERVICE_URL = os.environ.get("USER_SERVICE_URL")
+elif os.environ.get("IDENTITY_SERVICE_URL"):
+    settings.USER_SERVICE_URL = os.environ.get("IDENTITY_SERVICE_URL")
+
+# Normalize URLs once after env overrides.
+settings.FRONTEND_URL = settings.normalized_frontend_url
+settings.USER_SERVICE_URL = settings.normalized_user_service_url
+
+# Guard rail for production deployments.
+if settings.is_production and not settings.JWT_SECRET:
+    raise RuntimeError("JWT_SECRET must be set in production")
 
 if not settings.is_production:
     print("\n" + "="*50)
-    print("🔍 RAG SERVICE CONFIGURATION:")
+    print("🔍 LIT-AI-ENGINE CONFIGURATION:")
     print(f"Environment: {settings.ENVIRONMENT}")
-    print(f"Identity Service URL: {settings.IDENTITY_SERVICE_URL}")
+    print(f"User Service URL: {settings.normalized_user_service_url}")
     print(f"CORS Origins: {settings.cors_origins_list}")
     print("="*50 + "\n")
