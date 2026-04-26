@@ -7,7 +7,7 @@ LitScholar is a modern, full-stack microservices application that transforms boo
 ## 🚀 Key Features
 
 - **Conversational Discovery**: Ask "I want a book like Interstellar but with more focus on biology" and get reasoned results with citations
-- **Semantic Search**: Powered by sentence-transformers and ChromaDB for deep contextual relevance
+- **Semantic Search**: Powered by sentence-transformers and FAISS for deep contextual relevance
 - **Microservices Architecture**: Decoupled backend services for maximum scalability
 - **Personalized Dashboard**: "For You" recommendations based on your viewing history
 - **Integrated Email**: Identity service handles welcome emails and login alerts directly via SMTP
@@ -19,9 +19,9 @@ LitScholar is a modern, full-stack microservices application that transforms boo
 
 ## 🔐 Authentication & Identity (cookies + microservices)
 
-- The **identity service** (formerly auth-service) sets **httpOnly** cookies (`access_token`, `refresh_token`) on login, register, token refresh, and Google OAuth (redirect returns with `Set-Cookie`, no tokens in the URL).
-- The **identity service** also handles all **Email notifications** (SMTP) for user lifecycle events (welcome, login alerts, password resets).
-- The **React app** calls the identity API with **`credentials: included`** / Axios **`withCredentials: true`** so the browser sends cookies automatically.
+- The **user-service** sets **httpOnly** cookies (`access_token`, `refresh_token`) on login, register, token refresh, and Google OAuth (redirect returns with `Set-Cookie`, no tokens in the URL).
+- The **user-service** also handles all **email notifications** (SMTP) for user lifecycle events (welcome, login alerts, password resets).
+- The **Frontend app** calls the user-service API with **`credentials: included`** / Axios **`withCredentials: true`** so the browser sends cookies automatically.
 - Other services (e.g. **RAG** on a different port) do not receive auth cookies cross-origin. The client stores the access JWT **in memory only** (from JSON responses) for **`Authorization: Bearer`** to those APIs—**not** in `localStorage`. Logout clears memory and hits **`POST /auth/logout`** to invalidate the refresh token server-side.
 
 ---
@@ -38,10 +38,10 @@ LitScholar is a modern, full-stack microservices application that transforms boo
 ### **Backend**
 - FastAPI (Python 3.13+)
 - Neon PostgreSQL (Serverless)
-- ChromaDB (Vector Database)
+- FAISS (Vector Index)
 - Google Gemini API
 - JWT with HTTP-only cookies
-- SMTP integration (Integrated into Identity Service)
+- SMTP integration (Integrated into user-service)
 
 ---
 
@@ -70,12 +70,12 @@ LitScholar is a modern, full-stack microservices application that transforms boo
 │  ┌────────────────────────────────────────────────────────────────────┐   │
 │  │                                                                    │   │
 │  │  ┌──────────────┐    ┌──────────────┐                              │   │
-│  │  │   Identity   │    │     RAG      │                              │   │
-│  │  │   Service    │    │   Service    │                              │   │
+│  │  │  user-service│    │ lit-ai-engine│                              │   │
+│  │  │              │    │              │                              │   │
 │  │  │   :8000      │    │   :8001      │                              │   │
 │  │  │              │    │              │                              │   │
 │  │  │ • JWT Auth   │    │ • Gemini AI  │                              │   │
-│  │  │ • Google OAuth│    │ • ChromaDB  │                              │   │
+│  │  │ • Google OAuth│    │ • FAISS      │                              │   │
 │  │  │ • Users      │    │ • Semantic   │                              │   │
 │  │  │ • Email SMTP │    │   Search     │                              │   │
 │  │  └──────┬───────┘    └──────┬───────┘                              │   │
@@ -92,14 +92,14 @@ LitScholar is a modern, full-stack microservices application that transforms boo
 ## 🔄 Data Flow Diagram
 
 ```
-┌──────────┐    1. Login/Register     ┌──────────┐    2. Verify     ┌──────────┐
-│  React   │ ───────────────────────> │ Identity │ ───────────────> │  Neon    │
-│  Frontend│ <─────────────────────── │  Service │ <─────────────── │   DB     │
+┌──────────┐    1. Login/Register     ┌──────────────┐  2. Verify    ┌──────────┐
+│  React   │ ───────────────────────> │ user-service │ ────────────> │  Neon    │
+│  Frontend│ <─────────────────────── │              │ <──────────── │   DB     │
 └──────────┘    7. JWT + Cookies      └──────────┘    3. User Data  └──────────┘
       │                                    
-      │ 4. Search Books                    ┌──────────┐    5. Query     ┌──────────┐
-      └──────────────────────────────────> │   RAG    │ ─────────────>  │ ChromaDB │
-                                           │  Service │ <─────────────  │          │
+      │ 4. Search Books                    ┌──────────────┐  5. Query   ┌──────────┐
+      └──────────────────────────────────> │ lit-ai-engine│ ──────────> │  FAISS   │
+                                           │              │ <──────────  │          │
       ┌──────────────────────────────────< │          │    6. Embeddings└──────────┘
       │ 8. Results + AI Response           └──────────┘
 ```
@@ -111,8 +111,8 @@ LitScholar is a modern, full-stack microservices application that transforms boo
 | Service | Talks To | Purpose |
 |---------|----------|---------|
 | **Frontend** | All Services | User interface & API calls |
-| **Identity** | NeonDB, Google OAuth, SMTP | Auth, user data, & emails |
-| **RAG** | NeonDB, ChromaDB, Gemini | Book search & AI responses |
+| **user-service** | NeonDB, Google OAuth, SMTP | Auth, user data, & emails |
+| **lit-ai-engine** | NeonDB, FAISS, Gemini | Book search & AI responses |
 
 ---
 
@@ -133,15 +133,15 @@ cd litscholar
 python -m venv venv
 .\venv\Scripts\activate
 
-# Install all dependencies
-pip install -r identity-service/requirements.txt -r rag-service/requirements.txt
+# Install backend dependencies
+pip install -r user-service/requirements.txt -r lit-ai-engine/requirements.txt
 
 # Start all services (requires 2 backend terminals)
-cd identity-service && ..\venv\Scripts\python.exe run.py
-cd rag-service && ..\venv\Scripts\python.exe run.py
+cd user-service && ..\venv\Scripts\python.exe run.py
+cd ..\lit-ai-engine && ..\venv\Scripts\python.exe run.py
 
 # Start frontend
-cd client && npm install && npm run dev
+cd ..\Frontend && npm install && npm run dev
 ```
 
 Visit `http://localhost:5173` 🚀
@@ -162,8 +162,8 @@ Visit `http://localhost:5173` 🚀
 
 ```
 LitScholar/
-├── client/           # React + Vite (splash, dashboard, book detail)
-├── identity-service/ # JWT, httpOnly cookies, OAuth, users, Email SMTP
-├── rag-service/      # AI, Chroma, books API
-└── data_processing/  # Embedding pipeline (optional)
+├── Frontend/         # React + Vite (splash, dashboard, book detail)
+├── user-service/     # JWT, httpOnly cookies, OAuth, users, Email SMTP
+├── lit-ai-engine/    # AI, FAISS, books API
+└── FAISS_data_preprocessing/ # Index/data prep pipeline (optional)
 ```
