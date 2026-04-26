@@ -11,6 +11,7 @@
 venv/
 ENV/
 env/
+lit-ai-engine/env
 
 # --- Python ---
 __pycache__/
@@ -107,10 +108,6 @@ models/
 
 # --- Local Data & Vector Stores ---
 # Ignore local indices and databases that are generated
-**/chroma_store/
-**/faiss_store/
-*.index
-*.sqlite3
 data/temp/
 *.tmp
 

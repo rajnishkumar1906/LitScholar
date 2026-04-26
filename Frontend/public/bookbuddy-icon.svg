@@ -1,0 +1,41 @@
+<svg width="100" height="100" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Book base -->
+  <path d="M20 25 L80 25 L80 75 L20 75 Z" fill="url(#grad1)" stroke="url(#grad2)" stroke-width="3" rx="8"/>
+  <!-- Book spine -->
+  <rect x="45" y="25" width="10" height="50" fill="url(#grad3)" rx="2"/>
+  <!-- Book pages -->
+  <path d="M22 28 L78 28" stroke="white" stroke-width="1.5" stroke-dasharray="4 4"/>
+  <path d="M22 35 L78 35" stroke="white" stroke-width="1.5" stroke-dasharray="4 4"/>
+  <path d="M22 42 L78 42" stroke="white" stroke-width="1.5" stroke-dasharray="4 4"/>
+  <path d="M22 49 L78 49" stroke="white" stroke-width="1.5" stroke-dasharray="4 4"/>
+  <path d="M22 56 L78 56" stroke="white" stroke-width="1.5" stroke-dasharray="4 4"/>
+  <path d="M22 63 L78 63" stroke="white" stroke-width="1.5" stroke-dasharray="4 4"/>
+  <path d="M22 70 L78 70" stroke="white" stroke-width="1.5" stroke-dasharray="4 4"/>
+  
+  <!-- AI/Brain symbol -->
+  <circle cx="70" cy="35" r="12" fill="white" fill-opacity="0.95" stroke="url(#grad2)" stroke-width="2"/>
+  <path d="M70 30 L70 40 M65 35 L75 35" stroke="url(#grad2)" stroke-width="2.5" stroke-linecap="round"/>
+  <circle cx="70" cy="35" r="4" fill="url(#grad2)"/>
+  
+  <!-- Reading glasses -->
+  <circle cx="35" cy="45" r="8" fill="white" fill-opacity="0.9" stroke="url(#grad2)" stroke-width="2"/>
+  <circle cx="55" cy="45" r="8" fill="white" fill-opacity="0.9" stroke="url(#grad2)" stroke-width="2"/>
+  <path d="M43 45 L47 45" stroke="url(#grad2)" stroke-width="2.5"/>
+  
+  <!-- Gradients - Brown tones -->
+  <defs>
+    <linearGradient id="grad1" x1="20" y1="25" x2="80" y2="75" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#8B5A2B"/>
+      <stop offset="0.5" stop-color="#A0522D"/>
+      <stop offset="1" stop-color="#8B4513"/>
+    </linearGradient>
+    <linearGradient id="grad2" x1="20" y1="25" x2="80" y2="75" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#8B4513"/>
+      <stop offset="1" stop-color="#5D3A1A"/>
+    </linearGradient>
+    <linearGradient id="grad3" x1="45" y1="25" x2="55" y2="75" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#A0522D"/>
+      <stop offset="1" stop-color="#8B4513"/>
+    </linearGradient>
+  </defs>
+</svg>
